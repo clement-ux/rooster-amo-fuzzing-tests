@@ -3,12 +3,16 @@ src = "src"
 out = "out"
 libs = ["dependencies"]
 auto_detect_remappings = false
-ignored_warnings_from = ["dependencies/*"]
+ignored_warnings_from = ["dependencies/"]
 
+# Note: Rooster AMO use OpenZeppelin Contracts v4.4.2, while Rooster Pool uses v5.0.1.
 remappings = [
     "forge-std/=dependencies/forge-std-1.9.7/src/",
     "@rooster-amo/=dependencies/@rooster-amo-1.0.0/contracts/contracts/",
-    "@rooster-pool/=dependencies/@rooster-pool-1.0.0"
+    "@rooster-pool/=dependencies/@rooster-pool-1.0.0",
+    "@maverick/v2-common/=dependencies/@rooster-pool-1.0.0/v2-common/",
+    "dependencies/@rooster-amo-1.0.0/:@openzeppelin/contracts/=dependencies/@openzeppelin-contracts-4.4.2-4.4.2/contracts/",
+    "dependencies/@rooster-pool-1.0.0/:@openzeppelin/contracts/=dependencies/@openzeppelin-contracts-5.0.1-5.0.1/contracts/",
 ]
 
 [soldeer]
@@ -23,5 +27,10 @@ remappings_location = "config"
 forge-std = "1.9.7"
 "@rooster-amo" = { version = "1.0.0", git = "git@github.com:OriginProtocol/origin-dollar.git", rev = "6b4ae022ece36037af8e89ec5775a7447587c7dd" }
 "@rooster-pool" = { version = "1.0.0", git = "git@github.com:rooster-protocol/rooster-contracts.git", rev = "3ca894283d1e9a903e500c01a1d1841930d7570e" }
+"@openzeppelin-contracts-4.4.2" = { version = "4.4.2", git = "git@github.com:OpenZeppelin/openzeppelin-contracts.git", rev = "b53c43242fc9c0e435b66178c3847c4a1b417cc1" }
+"@openzeppelin-contracts-5.0.1" = { version = "5.0.1", git = "git@github.com:OpenZeppelin/openzeppelin-contracts.git", rev = "01ef448981be9d20ca85f2faf6ebdf591ce409f3" }
+
+
+
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
