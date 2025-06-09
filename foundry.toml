@@ -15,14 +15,6 @@ remappings = [
     "dependencies/@rooster-pool-1.0.0/:@openzeppelin/contracts/=dependencies/@openzeppelin-contracts-5.0.1-5.0.1/contracts/",
 ]
 
-[soldeer]
-recursive_deps = false
-remappings_version = false
-remappings_generate = false
-remappings_regenerate = false
-remappings_prefix = "@"
-remappings_location = "config"
-
 [dependencies]
 forge-std = "1.9.7"
 "@rooster-amo" = { version = "1.0.0", git = "git@github.com:OriginProtocol/origin-dollar.git", rev = "6b4ae022ece36037af8e89ec5775a7447587c7dd" }
@@ -30,7 +22,12 @@ forge-std = "1.9.7"
 "@openzeppelin-contracts-4.4.2" = { version = "4.4.2", git = "git@github.com:OpenZeppelin/openzeppelin-contracts.git", rev = "b53c43242fc9c0e435b66178c3847c4a1b417cc1" }
 "@openzeppelin-contracts-5.0.1" = { version = "5.0.1", git = "git@github.com:OpenZeppelin/openzeppelin-contracts.git", rev = "01ef448981be9d20ca85f2faf6ebdf591ce409f3" }
 
-
-
+[soldeer]
+recursive_deps = false
+remappings_version = false
+remappings_generate = false
+remappings_regenerate = false
+remappings_prefix = "@"
+remappings_location = "config"
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
