@@ -1,0 +1,21 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["dependencies"]
+auto_detect_remappings = false
+ignored_warnings_from = ["dependencies/*"]
+
+remappings = ["forge-std/=dependencies/forge-std-1.9.7/src/"]
+
+[soldeer]
+recursive_deps = false
+remappings_version = false
+remappings_generate = false
+remappings_regenerate = false
+remappings_prefix = "@"
+remappings_location = "config"
+
+[dependencies]
+forge-std = "1.9.7"
+
+# See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
