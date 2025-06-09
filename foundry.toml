@@ -8,6 +8,7 @@ ignored_warnings_from = ["dependencies/*"]
 remappings = [
     "forge-std/=dependencies/forge-std-1.9.7/src/",
     "@rooster-amo/=dependencies/@rooster-amo-1.0.0/contracts/contracts/",
+    "@rooster-pool/=dependencies/@rooster-pool-1.0.0"
 ]
 
 [soldeer]
@@ -21,5 +22,6 @@ remappings_location = "config"
 [dependencies]
 forge-std = "1.9.7"
 "@rooster-amo" = { version = "1.0.0", git = "git@github.com:OriginProtocol/origin-dollar.git", rev = "6b4ae022ece36037af8e89ec5775a7447587c7dd" }
+"@rooster-pool" = { version = "1.0.0", git = "git@github.com:rooster-protocol/rooster-contracts.git", rev = "3ca894283d1e9a903e500c01a1d1841930d7570e" }
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
