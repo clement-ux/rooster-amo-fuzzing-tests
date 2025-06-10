@@ -3,11 +3,14 @@ pragma solidity 0.8.28;
 
 // Test imports
 import {Base_Test} from "./Base.sol";
+import {DeploymentParams as deploy} from "./helpers/Constants.sol";
 
 // Maverick contracts
 import {MaverickV2Pool} from "@rooster-pool/v2-amm/contracts/MaverickV2Pool.sol";
+import {MaverickV2Quoter} from "@rooster-pool/v2-supplemental/contracts/MaverickV2Quoter.sol";
 import {MaverickV2Factory} from "@rooster-pool/v2-amm/contracts/MaverickV2Factory.sol";
 import {MaverickV2Position} from "@rooster-pool/v2-supplemental/contracts/MaverickV2Position.sol";
+import {MaverickV2PoolLens} from "@rooster-pool/v2-supplemental/contracts/MaverickV2PoolLens.sol";
 import {MaverickV2LiquidityManager} from "@rooster-pool/v2-supplemental/contracts/MaverickV2LiquidityManager.sol";
 
 // Maverick interfaces
@@ -71,7 +74,9 @@ contract Setup is Base_Test {
         operator = makeAddr("Operator");
 
         // Mocked addresses
-        vm.label(boostedPositionFactory, "Boosted Position Factory");
+        poolDistributor = makeAddr("Pool Distributor");
+        votingDistributor = makeAddr("Voting Distributor");
+        boostedPositionFactory = makeAddr("Boosted Position Factory");
     }
 
     //////////////////////////////////////////////////////
@@ -83,13 +88,16 @@ contract Setup is Base_Test {
         // Deploy WETH
         weth = new MockERC20("Wrapped Ether", "WETH", 18);
 
-        // Deploy Maverick V2 Factory
+        // ---
+        // --- Deploy Maverick V2 Related Contracts ---
+        // ---
+        // Maverick V2 Factory
         factory = new MaverickV2Factory(governor);
 
-        // Deploy Maverick V2 Position
+        // Maverick V2 Position
         position = new MaverickV2Position(IMaverickV2Factory(address(factory)));
 
-        // Deploy Maverick V2 Liquidity Manager
+        // Maverick V2 Liquidity Manager
         liquidityManager = new MaverickV2LiquidityManager(
             IMaverickV2Factory(address(factory)),
             IWETH9(address(weth)),
@@ -97,10 +105,26 @@ contract Setup is Base_Test {
             IMaverickV2BoostedPositionFactory(boostedPositionFactory)
         );
 
-        // Deploy WETH/OETH Maverick V2 Pool
+        // WETH/OETH Maverick V2 Pool
         pool = MaverickV2Pool(
-            address(factory.create(100000000000000, 1, 300, IERC20(address(weth)), IERC20(address(oeth)), -1, 1))
+            address(
+                factory.create(
+                    deploy.POOL_FEE,
+                    deploy.TICK_SPACING,
+                    deploy.LOOK_BACK_PERIOD,
+                    IERC20(address(weth)),
+                    IERC20(address(oeth)),
+                    deploy.ACTIVE_TICK,
+                    deploy.KINDS
+                )
+            )
         );
+
+        // Pool Lens
+        poolLens = new MaverickV2PoolLens();
+
+        // Quoter
+        quoter = new MaverickV2Quoter();
 
         // Label all freshly deployed external contracts
         vm.label(address(oeth), "OETH");
