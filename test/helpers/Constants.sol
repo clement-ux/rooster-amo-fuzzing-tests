@@ -18,10 +18,12 @@ library DeploymentParams {
 
     // Initiale AMO boundaries
     uint256 public constant INITIAL_ALLOWED_WETH_SHARE_START = 0.05 ether; // 5%
-    uint256 public constant INITIAL_ALLOWED_WETH_SHARE_END = 0.90 ether; // 95%
+    uint256 public constant INITIAL_ALLOWED_WETH_SHARE_END = 0.9 ether; // 95%
 }
 
 library InvariantParams {
+    bool public constant LOG = true;
+
     uint256 public constant NUM_EXTERNAL_LP = 2;
     uint256 public constant NUM_EXTERNAL_SWAPPER = 1;
 }
