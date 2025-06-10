@@ -48,7 +48,9 @@ abstract contract Base_Test is Test {
     //////////////////////////////////////////////////////
     /// --- Governance, multisigs and EOAs
     //////////////////////////////////////////////////////
+    address[] public lps;
     address[] public users;
+    address[] public swappers;
 
     address public alice;
     address public bobby;

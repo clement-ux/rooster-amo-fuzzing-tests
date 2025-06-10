@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 // Test imports
 import {Base_Test} from "./Base.sol";
 import {DeploymentParams as deploy} from "./helpers/Constants.sol";
+import {InvariantParams as inv} from "./helpers/Constants.sol";
 
 // AMO
 import {RoosterAMOStrategy} from "@rooster-amo/strategies/plume/RoosterAMOStrategy.sol";
@@ -20,6 +21,7 @@ import {MaverickV2LiquidityManager} from "@rooster-pool/v2-supplemental/contract
 
 // Maverick interfaces
 import {IMaverickV2Factory} from "@rooster-pool/v2-common/contracts/interfaces/IMaverickV2Factory.sol";
+import {IMaverickV2Pool} from "@rooster-pool/v2-common/contracts/interfaces/IMaverickV2Pool.sol";
 import {IMaverickV2BoostedPositionFactory} from
     "@rooster-pool/v2-supplemental/contracts/interfaces/IMaverickV2BoostedPositionFactory.sol";
 
@@ -28,7 +30,12 @@ import {IERC20} from "@openzeppelin/token/ERC20/IERC20.sol";
 import {IWETH9} from "@rooster-pool/v2-supplemental/contracts/paymentbase/IWETH9.sol";
 import {MockERC20} from "@solmate/test/utils/mocks/MockERC20.sol";
 
+// Solmate and Solady
+import {SafeCastLib} from "@solady/utils/SafeCastLib.sol";
+
 contract Setup is Base_Test {
+    using SafeCastLib for uint16;
+
     //////////////////////////////////////////////////////
     /// --- SETUP
     //////////////////////////////////////////////////////
@@ -46,7 +53,7 @@ contract Setup is Base_Test {
         _deployContracts();
 
         // 5. Initialize users and contracts.
-        //_initiliaze();
+        _initalize();
     }
 
     //////////////////////////////////////////////////////
@@ -181,6 +188,59 @@ contract Setup is Base_Test {
         // Label all freshly deployed contracts
         vm.label(address(strategyProxy), "RoosterAMOStrategy Proxy");
         vm.label(address(strategy), "RoosterAMOStrategy");
+    }
+
+    //////////////////////////////////////////////////////
+    /// --- USER ROLE ASSIGNMENT & INITIAL POOL SEEDING
+    //////////////////////////////////////////////////////
+    function _initalize() private {
+        // This section assigns users to specific roles for testing:
+        // - lps: Users who will act as external liquidity providers.
+        // - swappers: Users who will act as external swappers.
+        for (uint256 i; i < inv.NUM_EXTERNAL_LP; i++) {
+            lps.push(users[i]);
+        }
+
+        for (uint256 i = inv.NUM_EXTERNAL_LP; i < inv.NUM_EXTERNAL_LP + inv.NUM_EXTERNAL_SWAPPER; i++) {
+            swappers.push(users[i]);
+        }
+
+        // ---
+        // --- Seed pool with some liquidity
+        // ---
+        // Ticks
+        int32[] memory ticks = new int32[](2);
+        ticks[0] = deploy.ACTIVE_TICK - deploy.TICK_SPACING.toInt32(); // -2
+        ticks[1] = deploy.ACTIVE_TICK; // -1
+        // Amounts
+        uint128[] memory amounts = new uint128[](2);
+        amounts[0] = deploy.INITIAL_LIQUIDITY_WETH;
+        amounts[1] = deploy.INITIAL_LIQUIDITY_OETH;
+        // Pack the ticks and amounts
+        IMaverickV2Pool.AddLiquidityParams memory param =
+            IMaverickV2Pool.AddLiquidityParams({kind: 0, ticks: ticks, amounts: amounts});
+        // Calculate the amounts needed to add liquidity
+        (uint256 wethAmount, uint256 oethAmount,) = quoter.calculateAddLiquidity(pool, param);
+        // Pack the parameters for adding liquidity
+        IMaverickV2Pool.AddLiquidityParams[] memory params = new IMaverickV2Pool.AddLiquidityParams[](1);
+        params[0] = param;
+        bytes[] memory packedArgs = liquidityManager.packAddLiquidityArgsArray(params);
+        bytes memory packedSqrtPriceBreaks = liquidityManager.packUint88Array(new uint88[](1));
+
+        // Deal tokens and approve for adding liquidity
+        deal(address(weth), address(this), wethAmount);
+        deal(address(oeth), address(this), oethAmount);
+        weth.approve(address(liquidityManager), wethAmount);
+        oeth.approve(address(liquidityManager), oethAmount);
+
+        // Add liquidity to the pool
+        liquidityManager.addLiquidity({
+            pool: IMaverickV2Pool(address(pool)),
+            recipient: address(this),
+            subaccount: 0,
+            packedSqrtPriceBreaks: packedSqrtPriceBreaks,
+            packedArgs: packedArgs
+        });
     }
 
     function test() public {}

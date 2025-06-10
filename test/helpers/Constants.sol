@@ -11,4 +11,13 @@ library DeploymentParams {
 
     // AMO
     bool public constant UPPER_TICK_AT_PARITY = true;
+
+    // Initiale Pool liquidity
+    uint128 public constant INITIAL_LIQUIDITY_WETH = 200 ether;
+    uint128 public constant INITIAL_LIQUIDITY_OETH = 200 ether;
+}
+
+library InvariantParams {
+    uint256 public constant NUM_EXTERNAL_LP = 2;
+    uint256 public constant NUM_EXTERNAL_SWAPPER = 1;
 }
