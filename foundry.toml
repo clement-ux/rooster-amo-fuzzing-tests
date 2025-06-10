@@ -15,8 +15,15 @@ remappings = [
     "@maverick/v2-common/=dependencies/@rooster-pool-1.0.0/v2-common/",
     "dependencies/@rooster-amo-1.0.0/:@openzeppelin/contracts/=dependencies/@openzeppelin-contracts-4.4.2-4.4.2/contracts/",
     "dependencies/@rooster-pool-1.0.0/:@openzeppelin/contracts/=dependencies/@openzeppelin-contracts-5.0.1-5.0.1/contracts/",
-    "@openzeppelin/=dependencies/@openzeppelin-contracts-5.0.1-5.0.1/contracts/"
+    "@openzeppelin/=dependencies/@openzeppelin-contracts-5.0.1-5.0.1/contracts/",
 ]
+
+[invariant]
+runs = 1
+depth = 20
+shrink_run_limit = 5_000
+show_metrics = true
+fail_on_revert = true
 
 [dependencies]
 forge-std = "1.9.7"
