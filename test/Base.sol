@@ -9,6 +9,7 @@ import {RoosterAMOStrategy} from "@rooster-amo/strategies/plume/RoosterAMOStrate
 import {RoosterAMOStrategyProxy} from "@rooster-amo/proxies/PlumeProxies.sol";
 
 // Maverick
+import {LpReward} from "@rooster-pool/ve33/contracts/LpReward.sol";
 import {MaverickV2Pool} from "@rooster-pool/v2-amm/contracts/MaverickV2Pool.sol";
 import {MaverickV2Quoter} from "@rooster-pool/v2-supplemental/contracts/MaverickV2Quoter.sol";
 import {MaverickV2Factory} from "@rooster-pool/v2-amm/contracts/MaverickV2Factory.sol";
@@ -31,6 +32,7 @@ abstract contract Base_Test is Test {
     ERC20 public oeth;
 
     // Maverick contracts
+    LpReward public lpReward;
     MaverickV2Pool public pool;
     MaverickV2Quoter public quoter;
     MaverickV2Factory public factory;

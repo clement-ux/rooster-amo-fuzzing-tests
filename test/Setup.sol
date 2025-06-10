@@ -12,6 +12,7 @@ import {RoosterAMOStrategyProxy} from "@rooster-amo/proxies/PlumeProxies.sol";
 import {InitializableAbstractStrategy} from "@rooster-amo/utils/InitializableAbstractStrategy.sol";
 
 // Maverick contracts
+import {LpReward} from "@rooster-pool/ve33/contracts/LpReward.sol";
 import {MaverickV2Pool} from "@rooster-pool/v2-amm/contracts/MaverickV2Pool.sol";
 import {MaverickV2Quoter} from "@rooster-pool/v2-supplemental/contracts/MaverickV2Quoter.sol";
 import {MaverickV2Factory} from "@rooster-pool/v2-amm/contracts/MaverickV2Factory.sol";
@@ -20,8 +21,9 @@ import {MaverickV2PoolLens} from "@rooster-pool/v2-supplemental/contracts/Maveri
 import {MaverickV2LiquidityManager} from "@rooster-pool/v2-supplemental/contracts/MaverickV2LiquidityManager.sol";
 
 // Maverick interfaces
-import {IMaverickV2Factory} from "@rooster-pool/v2-common/contracts/interfaces/IMaverickV2Factory.sol";
 import {IMaverickV2Pool} from "@rooster-pool/v2-common/contracts/interfaces/IMaverickV2Pool.sol";
+import {ILiquidityRegistry} from "@rooster-pool/v2-common/contracts/interfaces/ILiquidityRegistry.sol";
+import {IMaverickV2Factory} from "@rooster-pool/v2-common/contracts/interfaces/IMaverickV2Factory.sol";
 import {IMaverickV2BoostedPositionFactory} from
     "@rooster-pool/v2-supplemental/contracts/interfaces/IMaverickV2BoostedPositionFactory.sol";
 
@@ -143,6 +145,13 @@ contract Setup is Base_Test {
         // Quoter
         quoter = new MaverickV2Quoter();
 
+        // LpReward
+        lpReward = new LpReward({_authorizedNotifier: address(position)});
+
+        // ---
+        // --- End of Maverick V2 Related Contracts ---
+        // ---
+
         // Deploy AMO Strategy Proxy
         strategyProxy = new RoosterAMOStrategyProxy();
 
@@ -150,6 +159,10 @@ contract Setup is Base_Test {
         vault = IVault(new MockVault(MockERC20(address(weth)), RoosterAMOStrategy(address(strategyProxy))));
 
         vm.stopPrank();
+
+        // Set the LpReward in the Maverick V2 Position contract
+        vm.prank(governor);
+        position.setLpReward(ILiquidityRegistry(address(lpReward)));
 
         // Label all freshly deployed external contracts
         vm.label(address(weth), "WETH");
@@ -160,6 +173,7 @@ contract Setup is Base_Test {
         vm.label(address(pool), "WETH/OETH Maverick V2 Pool");
         vm.label(address(poolLens), "Maverick V2 Pool Lens");
         vm.label(address(quoter), "Maverick V2 Quoter");
+        vm.label(address(lpReward), "Maverick LpReward");
         vm.label(address(strategyProxy), "RoosterAMOStrategy Proxy");
         vm.label(address(vault), "OETH Vault");
     }
@@ -241,10 +255,8 @@ contract Setup is Base_Test {
         oeth.approve(address(liquidityManager), oethAmount);
 
         // Add liquidity to the pool
-        liquidityManager.addLiquidity({
+        liquidityManager.mintPositionNftToSender({
             pool: IMaverickV2Pool(address(pool)),
-            recipient: address(this),
-            subaccount: 0,
             packedSqrtPriceBreaks: packedSqrtPriceBreaks,
             packedArgs: packedArgs
         });
