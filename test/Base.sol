@@ -19,6 +19,9 @@ import {MaverickV2LiquidityManager} from "@rooster-pool/v2-supplemental/contract
 // ERC
 import {ERC20} from "@solmate/tokens/ERC20.sol";
 
+// Mocks
+import {IVault} from "./mocks/IVault.sol";
+
 abstract contract Base_Test is Test {
     //////////////////////////////////////////////////////
     /// --- CONTRACTS
@@ -36,10 +39,10 @@ abstract contract Base_Test is Test {
     MaverickV2LiquidityManager public liquidityManager;
 
     // AMO contracts
+    IVault public vault;
     RoosterAMOStrategy public strategy;
     RoosterAMOStrategyProxy public strategyProxy;
 
-    address public vault;
     address public plateform;
     address public poolDistributor;
     address public votingDistributor;

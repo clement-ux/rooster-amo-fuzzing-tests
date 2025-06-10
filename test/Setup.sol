@@ -26,8 +26,10 @@ import {IMaverickV2BoostedPositionFactory} from
     "@rooster-pool/v2-supplemental/contracts/interfaces/IMaverickV2BoostedPositionFactory.sol";
 
 // Mocks
+import {IVault} from "./mocks/IVault.sol";
 import {IERC20} from "@openzeppelin/token/ERC20/IERC20.sol";
 import {IWETH9} from "@rooster-pool/v2-supplemental/contracts/paymentbase/IWETH9.sol";
+import {MockVault} from "./mocks/MockVault.sol";
 import {MockERC20} from "@solmate/test/utils/mocks/MockERC20.sol";
 
 // Solmate and Solady
@@ -86,7 +88,6 @@ contract Setup is Base_Test {
         operator = makeAddr("Operator");
 
         // Mocked addresses
-        vault = makeAddr("Vault");
         plateform = makeAddr("Plateform");
         poolDistributor = makeAddr("Pool Distributor");
         votingDistributor = makeAddr("Voting Distributor");
@@ -142,15 +143,25 @@ contract Setup is Base_Test {
         // Quoter
         quoter = new MaverickV2Quoter();
 
+        // Deploy AMO Strategy Proxy
+        strategyProxy = new RoosterAMOStrategyProxy();
+
+        // Deploy Vault
+        vault = IVault(new MockVault(MockERC20(address(weth)), RoosterAMOStrategy(address(strategyProxy))));
+
         vm.stopPrank();
 
         // Label all freshly deployed external contracts
-        vm.label(address(oeth), "OETH");
         vm.label(address(weth), "WETH");
+        vm.label(address(oeth), "OETH");
         vm.label(address(factory), "Maverick V2 Factory");
         vm.label(address(position), "Maverick V2 Position");
         vm.label(address(liquidityManager), "Maverick V2 Liquidity Manager");
         vm.label(address(pool), "WETH/OETH Maverick V2 Pool");
+        vm.label(address(poolLens), "Maverick V2 Pool Lens");
+        vm.label(address(quoter), "Maverick V2 Quoter");
+        vm.label(address(strategyProxy), "RoosterAMOStrategy Proxy");
+        vm.label(address(vault), "OETH Vault");
     }
 
     //////////////////////////////////////////////////////
@@ -159,12 +170,9 @@ contract Setup is Base_Test {
     function _deployContracts() private {
         vm.startPrank(deployer);
 
-        // Deploy AMO Strategy Proxy
-        strategyProxy = new RoosterAMOStrategyProxy();
-
         // Deploy AMO Strategy Implementation
         strategy = new RoosterAMOStrategy({
-            _stratConfig: InitializableAbstractStrategy.BaseStrategyConfig(plateform, vault),
+            _stratConfig: InitializableAbstractStrategy.BaseStrategyConfig(plateform, address(vault)),
             _wethAddress: address(weth),
             _oethpAddress: address(oeth),
             _liquidityManager: address(liquidityManager),
@@ -186,7 +194,6 @@ contract Setup is Base_Test {
         strategy = RoosterAMOStrategy(address(strategyProxy));
 
         // Label all freshly deployed contracts
-        vm.label(address(strategyProxy), "RoosterAMOStrategy Proxy");
         vm.label(address(strategy), "RoosterAMOStrategy");
     }
 
