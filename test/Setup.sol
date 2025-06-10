@@ -156,7 +156,13 @@ contract Setup is Base_Test {
         strategyProxy = new RoosterAMOStrategyProxy();
 
         // Deploy Vault
-        vault = IVault(new MockVault(MockERC20(address(weth)), RoosterAMOStrategy(address(strategyProxy))));
+        vault = IVault(
+            new MockVault({
+                _weth: MockERC20(address(weth)),
+                _oeth: MockERC20(address(oeth)),
+                _strategy: RoosterAMOStrategy(address(strategyProxy))
+            })
+        );
 
         vm.stopPrank();
 
@@ -260,6 +266,13 @@ contract Setup is Base_Test {
             packedSqrtPriceBreaks: packedSqrtPriceBreaks,
             packedArgs: packedArgs
         });
+
+        // ---
+        // --- Mint initial AMO's position NFT
+        // ---
+        // No need to have WETH, the tick is already in a position where only OETH is needed.
+        vm.prank(governor);
+        strategy.mintInitialPosition();
     }
 
     function test() public {}
