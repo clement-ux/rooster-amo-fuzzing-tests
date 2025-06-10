@@ -37,7 +37,7 @@ import {MockERC20} from "@solmate/test/utils/mocks/MockERC20.sol";
 // Solmate and Solady
 import {SafeCastLib} from "@solady/utils/SafeCastLib.sol";
 
-contract Setup is Base_Test {
+abstract contract Setup is Base_Test {
     using SafeCastLib for uint16;
 
     //////////////////////////////////////////////////////
@@ -273,7 +273,14 @@ contract Setup is Base_Test {
         // No need to have WETH, the tick is already in a position where only OETH is needed.
         vm.prank(governor);
         strategy.mintInitialPosition();
-    }
 
-    function test() public {}
+        // ---
+        // Set the initial allowed WETH share
+        // ---
+        vm.prank(governor);
+        strategy.setAllowedPoolWethShareInterval({
+            _allowedWethShareStart: deploy.INITIAL_ALLOWED_WETH_SHARE_START,
+            _allowedWethShareEnd: deploy.INITIAL_ALLOWED_WETH_SHARE_END
+        });
+    }
 }

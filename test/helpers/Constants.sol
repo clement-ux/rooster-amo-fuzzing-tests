@@ -15,6 +15,10 @@ library DeploymentParams {
     // Initiale Pool liquidity
     uint128 public constant INITIAL_LIQUIDITY_WETH = 200 ether;
     uint128 public constant INITIAL_LIQUIDITY_OETH = 200 ether;
+
+    // Initiale AMO boundaries
+    uint256 public constant INITIAL_ALLOWED_WETH_SHARE_START = 0.05 ether; // 5%
+    uint256 public constant INITIAL_ALLOWED_WETH_SHARE_END = 0.90 ether; // 95%
 }
 
 library InvariantParams {
