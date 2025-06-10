@@ -11,24 +11,26 @@ import {RoosterAMOStrategy} from "@rooster-amo/strategies/plume/RoosterAMOStrate
 import {MockERC20} from "@solmate/test/utils/mocks/MockERC20.sol";
 
 contract MockVault is IVault {
-    MockERC20 public immutable token;
+    MockERC20 public immutable weth;
+    MockERC20 public immutable oeth;
     RoosterAMOStrategy public immutable strategy;
 
-    constructor(MockERC20 _token, RoosterAMOStrategy _strategy) {
-        token = _token;
+    constructor(MockERC20 _weth, MockERC20 _oeth, RoosterAMOStrategy _strategy) {
+        weth = _weth;
+        oeth = _oeth;
         strategy = _strategy;
     }
 
     function mintForStrategy(uint256 amount) external override {
-        token.mint(msg.sender, amount);
+        oeth.mint(msg.sender, amount);
     }
 
     function burnForStrategy(uint256 amount) external override {
-        token.burn(msg.sender, amount);
+        oeth.burn(msg.sender, amount);
     }
 
     function totalValue() external view override returns (uint256) {
-        require(token.balanceOf(address(this)) == 0, "Vault should be empty");
-        return strategy.checkBalance(address(token));
+        require(weth.balanceOf(address(this)) == 0, "Vault should be empty");
+        return strategy.checkBalance(address(weth));
     }
 }
