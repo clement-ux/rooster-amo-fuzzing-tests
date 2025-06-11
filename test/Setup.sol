@@ -21,6 +21,7 @@ import {MaverickV2PoolLens} from "@rooster-pool/v2-supplemental/contracts/Maveri
 import {MaverickV2LiquidityManager} from "@rooster-pool/v2-supplemental/contracts/MaverickV2LiquidityManager.sol";
 
 // Maverick interfaces
+import {IFeeRegistry} from "@rooster-pool/v2-common/contracts/interfaces/IFeeRegistry.sol";
 import {IMaverickV2Pool} from "@rooster-pool/v2-common/contracts/interfaces/IMaverickV2Pool.sol";
 import {ILiquidityRegistry} from "@rooster-pool/v2-common/contracts/interfaces/ILiquidityRegistry.sol";
 import {IMaverickV2Factory} from "@rooster-pool/v2-common/contracts/interfaces/IMaverickV2Factory.sol";
@@ -167,8 +168,10 @@ abstract contract Setup is Base_Test {
         vm.stopPrank();
 
         // Set the LpReward in the Maverick V2 Position contract
-        vm.prank(governor);
+        vm.startPrank(governor);
         position.setLpReward(ILiquidityRegistry(address(lpReward)));
+        factory.setProtocolFeeRegistry(IFeeRegistry(address(lpReward)));
+        vm.stopPrank();
 
         // Label all freshly deployed external contracts
         vm.label(address(weth), "WETH");
