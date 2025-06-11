@@ -1,102 +1,110 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
+import {LibString} from "@solady/utils/LibString.sol";
+
 library Logger {
-    // Converts a uint256 to a string with 12 digits before and 18 after the decimal point
-    // Replaces leading zeros in the integer part with spaces
-    function uintToFixedString(uint256 number) public pure returns (string memory) {
-        // Split the number into integer and decimal parts
-        // Consider the last 18 digits as decimals
-        uint256 decimalPlaces = 18;
-        uint256 divisor = 10 ** decimalPlaces; // 1 followed by 18 zeros
-        uint256 integerPart = number / divisor;
-        uint256 decimalPart = number % divisor;
+    using LibString for uint256;
 
-        // Convert the parts to strings
-        string memory integerStr = uintToString(integerPart);
-        string memory decimalStr = uintToString(decimalPart);
+    // This format values in logs, however it reduce the speed of the tests.
+    bool public constant FORMATED_LOGS = true;
+    uint256 public constant DEFAULT_MAX_DIGITS = 14;
 
-        // Pad the integer part with spaces on the left for leading zeros
-        string memory paddedInteger = padLeftWithSpaces(integerStr, 12);
-
-        // Pad the decimal part with zeros on the left
-        string memory paddedDecimal = padLeft(decimalStr, 18);
-
-        // Concatenate with the decimal point
-        return string(abi.encodePacked(paddedInteger, ".", paddedDecimal));
+    function faa(uint256 amount) public pure returns (string memory) {
+        return FORMATED_LOGS ? formatAmountAligned(amount, DEFAULT_MAX_DIGITS) : amount.toString();
     }
 
-    // Converts a uint256 to a string
-    function uintToString(uint256 value) internal pure returns (string memory) {
-        if (value == 0) {
-            return "0";
-        }
-
-        uint256 temp = value;
-        uint256 digits;
-
-        // Count the number of digits
-        while (temp != 0) {
-            digits++;
-            temp /= 10;
-        }
-
-        // Create a byte array to store the digits
-        bytes memory buffer = new bytes(digits);
-        while (value != 0) {
-            digits--;
-            buffer[digits] = bytes1(uint8(48 + (value % 10)));
-            value /= 10;
-        }
-
-        return string(buffer);
+    function faa(uint256 amount, uint256 maxDigits) public pure returns (string memory) {
+        return formatAmountAligned(amount, maxDigits);
     }
 
-    // Pads a string with spaces on the left until it reaches the desired length
-    function padLeftWithSpaces(string memory str, uint256 length) internal pure returns (string memory) {
+    function formatAmountAligned(uint256 amount, uint256 maxRawDigits) internal pure returns (string memory) {
+        uint256 integer = amount / 1e18;
+        uint256 fraction = amount % 1e18;
+
+        // Step 1: convertir en string brute (sans virgules ni padding)
+        string memory rawIntegerStr = integer.toString();
+
+        // Step 2: ajouter les virgules
+        string memory withCommas = addThousandSeparators(rawIntegerStr);
+        uint256 targetLength = maxRawDigits;
+
+        // Step 4: pad à gauche le résultat final (avec les virgules)
+        string memory paddedInteger = padLeft(withCommas, targetLength);
+
+        // Step 5: formater les décimales
+        string memory fractionStr = uintToFixedLengthString(fraction, 18);
+
+        return string(abi.encodePacked(paddedInteger, ".", fractionStr));
+    }
+
+    function uintToFixedLengthString(uint256 value, uint256 digits) internal pure returns (string memory) {
+        string memory str = value.toString();
+        uint256 length = bytes(str).length;
+
+        if (length >= digits) return str;
+
+        bytes memory result = new bytes(digits);
+        for (uint256 i = 0; i < digits - length; i++) {
+            result[i] = "0";
+        }
+        for (uint256 i = 0; i < length; i++) {
+            result[digits - length + i] = bytes(str)[i];
+        }
+
+        return string(result);
+    }
+
+    function padLeft(string memory str, uint256 totalLength) internal pure returns (string memory) {
         bytes memory strBytes = bytes(str);
-        if (strBytes.length >= length) {
-            return str;
+        uint256 padding = totalLength > strBytes.length ? totalLength - strBytes.length : 0;
+
+        bytes memory padded = new bytes(totalLength);
+        for (uint256 i = 0; i < padding; i++) {
+            padded[i] = " ";
         }
-
-        // Create a new array for padding
-        bytes memory padded = new bytes(length);
-        uint256 spacesToAdd = length - strBytes.length;
-
-        // Fill with spaces
-        for (uint256 i = 0; i < spacesToAdd; i++) {
-            padded[i] = bytes1(uint8(32)); // ' '
-        }
-
-        // Copy the existing digits
         for (uint256 i = 0; i < strBytes.length; i++) {
-            padded[spacesToAdd + i] = strBytes[i];
+            padded[padding + i] = strBytes[i];
         }
 
         return string(padded);
     }
 
-    // Pads a string with zeros on the left until it reaches the desired length
-    function padLeft(string memory str, uint256 length) internal pure returns (string memory) {
-        bytes memory strBytes = bytes(str);
-        if (strBytes.length >= length) {
-            return str;
+    function addThousandSeparators(string memory number) internal pure returns (string memory) {
+        bytes memory numBytes = bytes(number);
+        uint256 len = numBytes.length;
+
+        if (len <= 3) return number;
+
+        uint256 commas = (len - 1) / 3;
+        bytes memory result = new bytes(len + commas);
+
+        uint256 j = result.length;
+        uint256 k = 0;
+
+        for (uint256 i = len; i > 0; i--) {
+            j--;
+            result[j] = numBytes[i - 1];
+            k++;
+            if (k % 3 == 0 && i != 1) {
+                j--;
+                result[j] = " ";
+            }
         }
 
-        // Create a new array for padding
-        bytes memory padded = new bytes(length);
-        uint256 zerosToAdd = length - strBytes.length;
+        return string(result);
+    }
 
-        // Fill with zeros
-        for (uint256 i = 0; i < zerosToAdd; i++) {
-            padded[i] = bytes1(uint8(48)); // '0'
+    function uintArrayToString(uint256[] memory _array) public pure returns (string memory) {
+        bytes memory result;
+
+        for (uint256 i = 0; i < _array.length; i++) {
+            result = abi.encodePacked(result, _array[i].toString());
+            if (i < _array.length - 1) {
+                result = abi.encodePacked(result, ", ");
+            }
         }
 
-        // Copy the existing digits
-        for (uint256 i = 0; i < strBytes.length; i++) {
-            padded[zerosToAdd + i] = strBytes[i];
-        }
-
-        return string(padded);
+        return string(result);
     }
 }
