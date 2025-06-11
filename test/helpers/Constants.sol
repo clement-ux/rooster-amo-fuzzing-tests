@@ -26,4 +26,6 @@ library InvariantParams {
 
     uint256 public constant NUM_EXTERNAL_LP = 2;
     uint256 public constant NUM_EXTERNAL_SWAPPER = 1;
+
+    int32 public constant TICK_LIMIT = 100;
 }
