@@ -32,7 +32,7 @@ abstract contract TargetFunction is Properties {
     // ║                      ✦✦✦ MAVERICK V2 POOL FUNCTIONS ✦✦✦                      ║
     // ╚══════════════════════════════════════════════════════════════════════════════╝
     // [ ] MigrateBinUpStack (not sure if this is needed)
-    // [ ] Swap (Pool)
+    // [x] Swap (Pool)
     // [ ] MintPositionNft (Liquidity Manager)
     // [ ] AddPositionLiquidityToSenderByTokenIndex (Liquidity Manager)
     // [ ] RemoveLiquidityToSender (Position Manager)
@@ -75,7 +75,7 @@ abstract contract TargetFunction is Properties {
         uint256 amountOut = _bound(_amount, 0, poolBalance);
 
         // Quote amountIn needed to swap for amountOut
-        (uint256 amountIn,,) = quoter.calculateSwap{gas: 1e7}({
+        (uint256 amountIn,,) = quoter.calculateSwap({
             pool: IMaverickV2Pool(address(pool)),
             amount: amountOut.toUint128(),
             tokenAIn: _wethIn,
@@ -96,7 +96,7 @@ abstract contract TargetFunction is Properties {
         vm.startPrank(swapper);
         // Swapper send token to the pool and swap
         tokenIn.transfer(address(pool), amountIn);
-        pool.swap{gas: 1e7}({
+        pool.swap({
             recipient: swapper,
             params: IMaverickV2Pool.SwapParams({
                 amount: amountOut.toUint128(),
