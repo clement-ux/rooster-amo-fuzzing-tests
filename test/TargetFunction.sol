@@ -13,7 +13,7 @@ abstract contract TargetFunction is Properties {
     // ╔══════════════════════════════════════════════════════════════════════════════╗
     // ║                            ✦✦✦ AMO FUNCTIONS ✦✦✦                             ║
     // ╚══════════════════════════════════════════════════════════════════════════════╝
-    // [ ] SetAllowedPoolWethShareInterval
+    // [x] SetAllowedPoolWethShareInterval
     // [ ] Deposit
     // [ ] Withdraw
     // [ ] Rebalance
@@ -27,7 +27,9 @@ abstract contract TargetFunction is Properties {
     // [ ] AddPositionLiquidityToSenderByTokenIndex (Liquidity Manager)
     // [ ] RemoveLiquidityToSender (Position Manager)
 
-    function handler_setAllowedPoolWethShareInterval(uint8 _start, uint8 _end) external {
+    using Logger for uint256;
+
+    function handler_setAllowedPoolWethShareInterval(uint96 _start, uint96 _end) external {
         uint256 start = _bound(_start, 1, 45); // ]1, 45]
         uint256 end = _bound(_end, 60, 95); // [0.60, 0.95[
         uint256 allowedWethShareStart = start == 1 ? 0.01001 ether : start * 0.01 ether;
@@ -37,9 +39,13 @@ abstract contract TargetFunction is Properties {
             console.log(
                 "User: %s -> setAllowedPoolWethShareInterval()\t Start: %s End: %s",
                 "gover",
-                Logger.uintToFixedString(allowedWethShareStart),
-                Logger.uintToFixedString(allowedWethShareEnd)
+                allowedWethShareStart.faa(),
+                allowedWethShareEnd.faa()
             );
         }
+
+        // Main call
+        vm.prank(governor);
+        strategy.setAllowedPoolWethShareInterval(allowedWethShareStart, allowedWethShareEnd);
     }
 }
