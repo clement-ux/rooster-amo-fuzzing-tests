@@ -28,4 +28,7 @@ library InvariantParams {
     uint256 public constant NUM_EXTERNAL_SWAPPER = 1;
 
     int32 public constant TICK_LIMIT = 100;
+
+    // Different between current weth share and target weth share allowed to trigger a rebalance
+    uint8 public constant MIN_WETH_SHARES_FOR_REBALANCE = 3; // -> 0.03 ether
 }

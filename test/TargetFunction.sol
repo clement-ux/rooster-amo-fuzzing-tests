@@ -5,6 +5,7 @@ pragma solidity 0.8.28;
 import {console} from "forge-std/console.sol";
 
 // Test imports
+import {Math} from "./helpers/Math.sol";
 import {Views} from "./helpers/Views.sol";
 import {Logger} from "./helpers/Logger.sol";
 import {Properties} from "./Properties.sol";
@@ -22,6 +23,7 @@ import {IMaverickV2Pool} from "@rooster-pool/v2-common/contracts/interfaces/IMav
 // Solmate and Solady imports
 import {LibString} from "@solady/utils/LibString.sol";
 import {SafeCastLib} from "@solady/utils/SafeCastLib.sol";
+import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 
 abstract contract TargetFunction is Properties {
     // ╔══════════════════════════════════════════════════════════════════════════════╗
@@ -41,11 +43,13 @@ abstract contract TargetFunction is Properties {
     // [ ] AddPositionLiquidityToSenderByTokenIndex (Liquidity Manager)
     // [ ] RemoveLiquidityToSender (Position Manager)
 
+    using Math for uint256;
+    using Views for RoosterAMOStrategy;
     using Logger for uint80;
     using Logger for uint256;
     using LibString for string;
     using SafeCastLib for uint256;
-    using Views for RoosterAMOStrategy;
+    using FixedPointMathLib for uint256;
 
     function handler_setAllowedPoolWethShareInterval(uint96 _start, uint96 _end) external {
         uint256 start = _bound(_start, 1, 45); // ]1, 45]
@@ -149,5 +153,114 @@ abstract contract TargetFunction is Properties {
         // Main call
         vm.prank(address(vault));
         strategy.deposit(address(weth), _amount);
+    }
+
+    function handler_rebalance(uint16 _targetWethShare) external {
+        // There is two possible scenarios for rebalance:
+        // 1. The current price is above the targeted price
+        // 2. The current price is below the targeted price
+        // ---
+        // How to determine the targeted price?
+        // We will take a random rounded value between the allowedWethShareStart and allowedWethShareEnd
+        // This will determine the targeted price as follows.
+        // ---
+        // Scenario 1:
+        // If the price is above the targeted price:
+        // - We swap OETH for WETH until the price is equal to the targeted price.
+        // - Add liquidity to the pool with the WETH received from the swap.
+        // ---
+        // Scenario 2:
+        // If the price is below the targeted price:
+        // - We remove liquidity from the pool
+        // - Swap WETH for OETH until the price is equal to the targeted price.
+        // - Add liquidity to the pool with the remaining WETH.
+
+        // Get current pool price
+        uint256 currentPrice = strategy.getPoolSqrtPrice();
+        // Get current range
+        (bool isExpectedRange, uint256 wethSharePct) = strategy.checkForExpectedPoolPrice();
+        // Get allowed WETH share range
+        uint256 allowedWethShareStart = strategy.allowedWethShareStart();
+        uint256 allowedWethShareEnd = strategy.allowedWethShareEnd();
+        // Get targeted WETH share rounded
+        // Note: allowedWethShareStart ∈ [0.01001, 0.45000]
+        //       allowedWethShareEnd   ∈ [0.60000, 0.94999]
+        uint16 lowerBound = (allowedWethShareStart / 0.01 ether).toUint16(); // ∈ [1, 45]
+        uint16 upperBound = (allowedWethShareEnd / 0.01 ether).toUint16() - 1; // ∈ [60, 94]
+        _targetWethShare = _bound(_targetWethShare, lowerBound, upperBound).toUint16(); // ∈ [1, 94]
+        uint256 targetWethShare = _targetWethShare;
+        targetWethShare = (targetWethShare == 1 ? 0.01001 ether : targetWethShare * 0.01 ether);
+        // To avoid too small rebalances, we only rebalance if abs(targetWethShare - wethSharePct) > 0.03 ether
+        // i.e. 3% target share difference
+        vm.assume(targetWethShare.absDiff(wethSharePct) > inv.MIN_WETH_SHARES_FOR_REBALANCE * 0.01 ether);
+
+        // Get current active tick
+        int32 activeTick = pool.getState().activeTick;
+        vm.assume(activeTick == -1);
+        // Get liquidity in active tick
+        uint256 reserveA = pool.getTick(activeTick).reserveA;
+        uint256 reserveB = pool.getTick(activeTick).reserveB;
+        console.log("Current WETH share: %s", wethSharePct);
+        console.log("Target WETH share : %s", targetWethShare);
+
+        // Scenario 1: Price is above the targeted price
+        if (wethSharePct > targetWethShare) {
+            // We need to swap OETH for WETH
+            // At the targeted price we have A / (A + B) = targetWethShare
+            // We need calculate the amount of OETH to swap to reach the targeted price
+            // i.e. (A - x) / ((A - x) + (B + x)) = targetWethShare (assuming 1:1 swap)
+            // Rearranging gives us:
+            // x = A - targetWethShare * (A + B)
+            // Note: as we mint OETH, there should be no situation where reserveA are too big.
+            uint256 amountToSwap = reserveA - targetWethShare.mulWad(reserveA + reserveB);
+            console.log(
+                "User: Vault -> rebalance() \t\t\t AmountToSwap: %s  CurrentWethShare: %s  TargetWethShare: %s ",
+                amountToSwap,
+                wethSharePct,
+                targetWethShare
+            );
+
+            vm.prank(governor);
+            strategy.rebalance({
+                _amountToSwap: amountToSwap,
+                _swapWeth: false,
+                _minTokenReceived: 0,
+                _liquidityToRemovePct: 0
+            });
+
+            pool.getTick(activeTick).reserveA;
+
+            // Swap OETH for WETH
+        } else {
+            (uint256 wethPosition, uint256 oethPosition) = strategy.getPositionPrincipal();
+            vm.assume(wethPosition > 1e12);
+            // We need to remove liquidity from the pool before swapping WETH for OETH
+            // For the sake of simplicity, we will 99% of the liquidity in the active tick
+            uint256 p = 0.95 ether; // 99%
+
+            // Calculate how big we are on this tick
+            uint256 s = (wethPosition + oethPosition).divWad(reserveA + reserveB);
+            uint256 r = targetWethShare;
+            console.log("S: %s  R: %s", s, r);
+
+            vm.assume(r * (reserveA + reserveB) >= reserveA);
+            uint256 x = ((1 ether ** 2 - (s * p)) / 1e18).mulWad(r * (reserveA + reserveB) - reserveA) / 1e18;
+
+            console.log("Check: ", p * s * reserveA / 1e36, " <= ", x.faa());
+            revert("gnegne");
+            vm.assume(x <= p * s * reserveA / 1e36);
+
+            console.log(
+                "User: Vault -> rebalance() \t\t\t AmountToSwap: %s  CurrentWethShare: %s  TargetWethShare: %s ",
+                x,
+                wethSharePct,
+                targetWethShare
+            );
+
+            vm.prank(governor);
+            strategy.rebalance({_amountToSwap: x, _swapWeth: true, _minTokenReceived: 0, _liquidityToRemovePct: p});
+            pool.getTick(activeTick);
+            revert("jjj");
+        }
     }
 }
