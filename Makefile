@@ -25,3 +25,12 @@ clean-all:
 	$(MAKE) clean
 	rm -f -r dependencies
 	rm -f -r soldeer.lock
+
+# Testing Targets
+test:
+	forge test --summary --detailed --show-progress 
+
+t: 
+	$(MAKE) test
+
+.PHONY: default install clean clean-all test
