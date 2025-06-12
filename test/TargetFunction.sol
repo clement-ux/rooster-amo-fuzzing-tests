@@ -28,7 +28,7 @@ abstract contract TargetFunction is Properties {
     // ║                            ✦✦✦ AMO FUNCTIONS ✦✦✦                             ║
     // ╚══════════════════════════════════════════════════════════════════════════════╝
     // [x] SetAllowedPoolWethShareInterval
-    // [ ] Deposit
+    // [x] Deposit
     // [ ] Withdraw
     // [ ] Rebalance
 
@@ -41,7 +41,7 @@ abstract contract TargetFunction is Properties {
     // [ ] AddPositionLiquidityToSenderByTokenIndex (Liquidity Manager)
     // [ ] RemoveLiquidityToSender (Position Manager)
 
-    using Logger for uint88;
+    using Logger for uint80;
     using Logger for uint256;
     using LibString for string;
     using SafeCastLib for uint256;
@@ -116,25 +116,38 @@ abstract contract TargetFunction is Properties {
         vm.stopPrank();
     }
 
-    function handler_deposit(uint88 _amount) external {
-        // Max amount deposited is approx 309,485,009 ether it is huge, but this AMO can be used stable coins
-        // It is still huge for stable coins, but if we use uint80, it will be approx 1,208,225, which is not enough
+    function handler_deposit(uint80 _amount) external {
         _amount = _amount == 0 ? 1 : _amount; // Bound to be at least 1
-        deal(address(weth), address(vault), _amount);
-        (bool isExpectedRange, uint256 wethSharePct) = strategy.checkForExpectedPoolPrice();
 
+        // Check if the pool price is in the expected range
+        (bool isExpectedRange, uint256 wethSharePct) = strategy.checkForExpectedPoolPrice();
+        // Depositing when the pool price is not in the expected range does not make sense.
+        // As we will only send WETH to the strategy and do nothing with it, waiting for the
+        // next deposit call is in expected range.
+        vm.assume(isExpectedRange);
+
+        // Give WETH to the vault
+        deal(address(weth), address(vault), _amount);
+        // Vault transfer it to the strategy
+        // Note: The vault is the only one allowed to call deposit()
+        // Note: We don't deal directly to the strategy, otherwise it will mess up the accounting.
+        vm.prank(address(vault));
+        weth.transfer(address(strategy), _amount);
+
+        uint256 wethBalance = weth.balanceOf(address(strategy));
+
+        // Log data
         if (inv.LOG) {
             console.log(
                 "User: Vault -> deposit() \t\t\t\t Amount\t : %s  WethShare: %s  Expect : %s",
-                _amount.faa(),
+                wethBalance.faa(),
                 wethSharePct.faa(),
                 isExpectedRange ? "Yes" : "No"
             );
         }
 
-        vm.startPrank(address(vault));
-        weth.transfer(address(strategy), _amount);
+        // Main call
+        vm.prank(address(vault));
         strategy.deposit(address(weth), _amount);
-        vm.stopPrank();
     }
 }
