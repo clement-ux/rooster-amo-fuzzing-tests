@@ -29,7 +29,7 @@ fail_on_revert = true
 forge-std = "1.9.7"
 "@solady" = { version = "0.1.19", git = "git@github.com:Vectorized/solady.git", rev = "b609a9c79ce541c2beca7a7d247665e7c93942a3" }
 "@solmate" = { version = "6.8.0", git = "git@github.com:transmissions11/solmate.git", rev = "c93f7716c9909175d45f6ef80a34a650e2d24e56" }
-"@rooster-amo" = { version = "1.0.0", git = "git@github.com:OriginProtocol/origin-dollar.git", rev = "6b4ae022ece36037af8e89ec5775a7447587c7dd" }
+"@rooster-amo" = { version = "1.0.0", git = "git@github.com:OriginProtocol/origin-dollar.git", rev = "935257cba005ac9275097d1e93055708cbc072ce" }
 "@rooster-pool" = { version = "1.0.0", git = "git@github.com:rooster-protocol/rooster-contracts.git", rev = "3ca894283d1e9a903e500c01a1d1841930d7570e" }
 "@openzeppelin-contracts-4.4.2" = { version = "4.4.2", git = "git@github.com:OpenZeppelin/openzeppelin-contracts.git", rev = "b53c43242fc9c0e435b66178c3847c4a1b417cc1" }
 "@openzeppelin-contracts-5.0.1" = { version = "5.0.1", git = "git@github.com:OpenZeppelin/openzeppelin-contracts.git", rev = "01ef448981be9d20ca85f2faf6ebdf591ce409f3" }
