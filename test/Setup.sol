@@ -2,9 +2,11 @@
 pragma solidity 0.8.28;
 
 // Test imports
+import {Views} from "./helpers/Views.sol";
 import {Base_Test} from "./Base.sol";
-import {DeploymentParams as deploy} from "./helpers/Constants.sol";
+import {RegisteredTicks} from "./helpers/RegisteredTicks.sol";
 import {InvariantParams as inv} from "./helpers/Constants.sol";
+import {DeploymentParams as deploy} from "./helpers/Constants.sol";
 
 // AMO
 import {RoosterAMOStrategy} from "@rooster-amo/strategies/plume/RoosterAMOStrategy.sol";
@@ -149,6 +151,9 @@ abstract contract Setup is Base_Test {
         // LpReward
         lpReward = new LpReward({_authorizedNotifier: address(position)});
 
+        // Register ticks
+        registeredTicks = new RegisteredTicks();
+
         // ---
         // --- End of Maverick V2 Related Contracts ---
         // ---
@@ -183,6 +188,7 @@ abstract contract Setup is Base_Test {
         vm.label(address(poolLens), "Maverick V2 Pool Lens");
         vm.label(address(quoter), "Maverick V2 Quoter");
         vm.label(address(lpReward), "Maverick LpReward");
+        vm.label(address(registeredTicks), "Registered Ticks");
         vm.label(address(strategyProxy), "RoosterAMOStrategy Proxy");
         vm.label(address(vault), "OETH Vault");
     }

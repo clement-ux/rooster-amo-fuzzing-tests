@@ -23,6 +23,9 @@ import {ERC20} from "@solmate/tokens/ERC20.sol";
 // Mocks
 import {IVault} from "./mocks/IVault.sol";
 
+// Helpers
+import {RegisteredTicks} from "./helpers/RegisteredTicks.sol";
+
 abstract contract Base_Test is Test {
     //////////////////////////////////////////////////////
     /// --- CONTRACTS
@@ -44,6 +47,9 @@ abstract contract Base_Test is Test {
     IVault public vault;
     RoosterAMOStrategy public strategy;
     RoosterAMOStrategyProxy public strategyProxy;
+
+    // Helpers
+    RegisteredTicks public registeredTicks;
 
     address public plateform;
     address public poolDistributor;
