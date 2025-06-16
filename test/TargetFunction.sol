@@ -21,6 +21,7 @@ import {RoosterAMOStrategy} from "@rooster-amo/strategies/plume/RoosterAMOStrate
 import {IMaverickV2Pool} from "@rooster-pool/v2-common/contracts/interfaces/IMaverickV2Pool.sol";
 
 // Solmate and Solady imports
+import {MockERC20} from "@solmate/test/utils/mocks/MockERC20.sol";
 import {LibString} from "@solady/utils/LibString.sol";
 import {SafeCastLib} from "@solady/utils/SafeCastLib.sol";
 import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
@@ -56,7 +57,7 @@ abstract contract TargetFunction is Properties {
         // So after we rebalance we should be able to deposit. But if we call this too often, we might
         // end up with a range that is too small to deposit and thus deposit will happen less often.
         // The allowed share is not expected to change often, so we can reduce the number of calls to this function.
-        if (_start % 100 < 75) return; // 75% chance to skip the call
+        vm.assume(_start % 100 >= 80); // 25% chance to call the function
 
         uint256 start = _bound(_start, 1, 45); // ]1, 45]
         uint256 end = _bound(_end, 60, 95); // [0.60, 0.95[
@@ -77,7 +78,7 @@ abstract contract TargetFunction is Properties {
         strategy.setAllowedPoolWethShareInterval(allowedWethShareStart, allowedWethShareEnd);
     }
 
-    function handler_swap(bool _wethIn, uint256 _amount) external {
+    function handler_swap(bool _wethIn, uint96 _amount) external {
         // Todo: reduce the type of _amount (to uint96 or smth)
         // As there is only one swapper, we can use the first one.
         address swapper = swappers[0];
@@ -104,7 +105,7 @@ abstract contract TargetFunction is Properties {
         // If tokenIn is OETH, we assume that the swapper has enough OETH to swap.
         // Because minting OETH is against the logic of the AMO.
         if (tokenIn == weth) {
-            deal(address(weth), swapper, amountIn);
+            MockERC20(address(weth)).mint(swapper, amountIn);
         } else {
             amountIn = Math.min(amountIn, oeth.balanceOf(swapper));
         }
@@ -115,6 +116,8 @@ abstract contract TargetFunction is Properties {
         if (inv.LOG) {
             console.log(log, amountIn.faa(), amountOut.faa(), _wethIn ? "WETH" : "OETH");
         }
+
+        vm.assume(amountIn > 0);
 
         vm.startPrank(swapper);
         // Swapper send token to the pool and swap
@@ -143,7 +146,7 @@ abstract contract TargetFunction is Properties {
         vm.assume(isExpectedRange);
 
         // Give WETH to the vault
-        deal(address(weth), address(vault), _amount);
+        MockERC20(address(weth)).mint(address(vault), _amount);
         // Vault transfer it to the strategy
         // Note: The vault is the only one allowed to call deposit()
         // Note: We don't deal directly to the strategy, otherwise it will mess up the accounting.

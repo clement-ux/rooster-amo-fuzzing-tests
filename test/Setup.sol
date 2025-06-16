@@ -2,7 +2,6 @@
 pragma solidity 0.8.28;
 
 // Test imports
-import {Views} from "./helpers/Views.sol";
 import {Base_Test} from "./Base.sol";
 import {RegisteredTicks} from "./helpers/RegisteredTicks.sol";
 import {InvariantParams as inv} from "./helpers/Constants.sol";
@@ -263,9 +262,9 @@ abstract contract Setup is Base_Test {
         bytes[] memory packedArgs = liquidityManager.packAddLiquidityArgsArray(params);
         bytes memory packedSqrtPriceBreaks = liquidityManager.packUint88Array(new uint88[](1));
 
-        // Deal tokens and approve for adding liquidity
-        deal(address(weth), address(this), wethAmount);
-        deal(address(oeth), address(this), oethAmount);
+        // Mint tokens and approve for adding liquidity
+        MockERC20(address(weth)).mint(address(this), wethAmount);
+        MockERC20(address(oeth)).mint(address(this), oethAmount);
         weth.approve(address(liquidityManager), wethAmount);
         oeth.approve(address(liquidityManager), oethAmount);
 
