@@ -100,6 +100,15 @@ abstract contract TargetFunction is Properties {
             tickLimit: _wethIn ? inv.TICK_LIMIT : -inv.TICK_LIMIT
         });
 
+        // If tokenIn is WETH, we need to deal it to the swapper.
+        // If tokenIn is OETH, we assume that the swapper has enough OETH to swap.
+        // Because minting OETH is against the logic of the AMO.
+        if (tokenIn == weth) {
+            deal(address(weth), swapper, amountIn);
+        } else {
+            amountIn = Math.min(amountIn, oeth.balanceOf(swapper));
+        }
+
         string memory log = LibString.concat("User: ", vm.getLabel(swapper)).concat(
             " -> swap() \t\t\t\t AmountIn: %s  AmountOut: %s  TokenIn: %s"
         );
@@ -107,18 +116,15 @@ abstract contract TargetFunction is Properties {
             console.log(log, amountIn.faa(), amountOut.faa(), _wethIn ? "WETH" : "OETH");
         }
 
-        // Give enough tokenIn to the swapper
-        deal(address(tokenIn), swapper, amountIn);
-
         vm.startPrank(swapper);
         // Swapper send token to the pool and swap
         tokenIn.transfer(address(pool), amountIn);
         pool.swap({
             recipient: swapper,
             params: IMaverickV2Pool.SwapParams({
-                amount: amountOut.toUint128(),
+                amount: amountIn.toUint128(),
                 tokenAIn: _wethIn,
-                exactOutput: true,
+                exactOutput: false,
                 tickLimit: _wethIn ? inv.TICK_LIMIT : -inv.TICK_LIMIT
             }),
             data: hex""
