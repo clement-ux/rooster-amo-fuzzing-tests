@@ -75,7 +75,20 @@ library Views {
         // If the current tick is below the target tick, we need to swap token B for token A, so amountB > 0 and amountA = 0
         uint256 priceUnder = TickMath.tickSqrtPrice(1, targetTick);
         uint256 priceOver = TickMath.tickSqrtPrice(1, targetTick + 1);
-        uint256 distance = priceOver - priceUnder;
+
+        if (currentTick == targetTick) {
+            SameTick memory sameTick = SameTick({
+                pool: pool,
+                currentTick: currentTick,
+                targetTick: targetTick,
+                removeLiquidity: removeLiquidity,
+                amoPositionA: amoPositionA,
+                amoPositionB: amoPositionB,
+                currentPrice: currentPrice,
+                targetPrice: targetPrice
+            });
+            return getAmountOfTokenBetweenPrices_SameTick(sameTick);
+        }
         // Cross-tick logic
         IMaverickV2Pool.TickState memory tickState;
         if (currentTick > targetTick) {
@@ -87,12 +100,14 @@ library Views {
             // Now we are in the situation where currentTick == targetTick
             // The following calculation only works if the current tick is fully filled with A token
             // Price ratio
-            uint256 ratio = (priceOver - targetPrice).divWad(distance);
+            uint256 ratio = (priceOver - targetPrice).divWad(priceOver - priceUnder);
 
             // Calculate the amount of token A to swap in the target tick
             tickState = pool.getTick(targetTick);
             amountA += tickState.reserveA.mulWad(ratio);
-        } else if (currentTick < targetTick) {
+        }
+
+        if (currentTick < targetTick) {
             while (currentTick < targetTick) {
                 tickState = pool.getTick(currentTick);
                 amountB += tickState.reserveB;
@@ -102,26 +117,45 @@ library Views {
 
             // The following calculation only works if the current tick is fully filled with B token
             // Price ratio
-            uint256 ratio = (targetPrice - priceUnder).divWad(distance);
+            uint256 ratio = (targetPrice - priceUnder).divWad(priceOver - priceUnder);
 
             // Calculate the amount of token B to swap in the target tick
             tickState = pool.getTick(targetTick);
             amountB += tickState.reserveB.mulWad(ratio);
-        } else {
-            // In this situation, the current price is in the same tick as the target price
-            // So there is 2 tokens in the current tick
-            tickState = pool.getTick(currentTick);
-            if (removeLiquidity && currentTick == -1) {
-                tickState.reserveA -= amoPositionA.toUint128();
-                tickState.reserveB -= amoPositionB.toUint128();
-            }
-            uint256 liquidity = tickState.reserveA + tickState.reserveB;
-
-            uint256 ratio = Math.absDiff(currentPrice, targetPrice).divWad(distance);
-            if (targetPrice < currentPrice) amountA = liquidity.mulWad(ratio);
-            else if (targetPrice > currentPrice) amountB = liquidity.mulWad(ratio);
-            else return (0, 0);
         }
+    }
+
+    struct SameTick {
+        IMaverickV2Pool pool;
+        int24 currentTick;
+        int24 targetTick;
+        bool removeLiquidity;
+        uint256 amoPositionA;
+        uint256 amoPositionB;
+        uint256 currentPrice;
+        uint256 targetPrice;
+    }
+
+    function getAmountOfTokenBetweenPrices_SameTick(SameTick memory params)
+        internal
+        view
+        returns (uint256 amountA, uint256 amountB)
+    {
+        IMaverickV2Pool.TickState memory tickState = params.pool.getTick(params.currentTick);
+
+        if (params.removeLiquidity && params.currentTick == -1) {
+            tickState.reserveA -= params.amoPositionA.toUint128();
+            tickState.reserveB -= params.amoPositionB.toUint128();
+        }
+
+        uint256 liquidity = tickState.reserveA + tickState.reserveB;
+
+        uint256 distance =
+            TickMath.tickSqrtPrice(1, params.targetTick + 1) - TickMath.tickSqrtPrice(1, params.targetTick);
+        uint256 ratio = Math.absDiff(params.currentPrice, params.targetPrice).divWad(distance);
+        if (params.targetPrice < params.currentPrice) amountA = liquidity.mulWad(ratio);
+        else if (params.targetPrice > params.currentPrice) amountB = liquidity.mulWad(ratio);
+        else return (0, 0);
     }
 
     /// @notice Copied from MaverickV2Position
