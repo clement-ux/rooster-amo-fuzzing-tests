@@ -7,11 +7,13 @@ import {RegisteredTicks} from "./RegisteredTicks.sol";
 
 // External imports
 import {TickMath} from "@rooster-pool/v2-common/contracts/libraries/TickMath.sol";
+import {SafeCastLib} from "@solady/utils/SafeCastLib.sol";
 import {IMaverickV2Pool} from "@rooster-pool/v2-common/contracts/interfaces/IMaverickV2Pool.sol";
 import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 import {RoosterAMOStrategy} from "@rooster-amo/strategies/plume/RoosterAMOStrategy.sol";
 
 library Views {
+    using SafeCastLib for uint256;
     using FixedPointMathLib for uint128;
     using FixedPointMathLib for uint256;
 
@@ -45,13 +47,24 @@ library Views {
         return (true, wethShare);
     }
 
-    /// @notice The objectif here is to find how many token there is between the current price and the target price
-    /// With this, we can use the swap function to swap the right amount of token out, and thus reach target price
     function getAmountOfTokenBetweenPrices(IMaverickV2Pool pool, RegisteredTicks register, uint256 targetPrice)
         external
         view
         returns (uint256 amountA, uint256 amountB)
     {
+        return getAmountOfTokenBetweenPrices(pool, register, targetPrice, false, 0, 0);
+    }
+
+    /// @notice The objectif here is to find how many token there is between the current price and the target price
+    /// With this, we can use the swap function to swap the right amount of token out, and thus reach target price
+    function getAmountOfTokenBetweenPrices(
+        IMaverickV2Pool pool,
+        RegisteredTicks register,
+        uint256 targetPrice,
+        bool removeLiquidity,
+        uint256 amoPositionA,
+        uint256 amoPositionB
+    ) public view returns (uint256 amountA, uint256 amountB) {
         uint256 currentPrice = getPoolSqrtPrice(pool);
 
         // Get the current tick
@@ -78,7 +91,6 @@ library Views {
 
             // Calculate the amount of token A to swap in the target tick
             tickState = pool.getTick(targetTick);
-            require(tickState.reserveB == 0, "Current tick must be fully filled with A token");
             amountA += tickState.reserveA.mulWad(ratio);
         } else if (currentTick < targetTick) {
             while (currentTick < targetTick) {
@@ -94,12 +106,15 @@ library Views {
 
             // Calculate the amount of token B to swap in the target tick
             tickState = pool.getTick(targetTick);
-            require(tickState.reserveA == 0, "Current tick must be fully filled with B token");
             amountB += tickState.reserveB.mulWad(ratio);
         } else {
             // In this situation, the current price is in the same tick as the target price
             // So there is 2 tokens in the current tick
             tickState = pool.getTick(currentTick);
+            if (removeLiquidity && currentTick == -1) {
+                tickState.reserveA -= amoPositionA.toUint128();
+                tickState.reserveB -= amoPositionB.toUint128();
+            }
             uint256 liquidity = tickState.reserveA + tickState.reserveB;
 
             uint256 ratio = Math.absDiff(currentPrice, targetPrice).divWad(distance);
@@ -128,5 +143,14 @@ library Views {
         (sqrtPrice, liquidity) = TickMath.getTickSqrtPriceAndL(
             tickState.reserveA, tickState.reserveB, sqrtLowerTickPrice, sqrtUpperTickPrice
         );
+    }
+
+    function convertWethSharesIntoPrice(uint256 wethShare) public pure returns (uint256) {
+        // This will be always between tick -1 and tick 0
+        uint256 sqrtPriceTickLower = TickMath.tickSqrtPrice(1, -1);
+        uint256 sqrtPriceTickHigher = TickMath.tickSqrtPrice(1, 0);
+
+        // Calculate the price based on the WETH share
+        return sqrtPriceTickLower + (sqrtPriceTickHigher - sqrtPriceTickLower).mulWad(wethShare);
     }
 }

@@ -30,5 +30,7 @@ library InvariantParams {
     int32 public constant TICK_LIMIT = 100;
 
     // Different between current weth share and target weth share allowed to trigger a rebalance
+    uint256 public constant LIQUIDITY_TO_REMOVE_PCT = 0.98 ether; // 98%
+    uint256 public constant MIN_WETH_SHARES_DIFFERENCE = 0.001 ether; // 0.1%
     uint8 public constant MIN_WETH_SHARES_FOR_REBALANCE = 3; // -> 0.03 ether
 }
