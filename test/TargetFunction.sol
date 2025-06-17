@@ -33,7 +33,7 @@ abstract contract TargetFunction is Properties {
     // [x] SetAllowedPoolWethShareInterval
     // [x] Deposit
     // [ ] Withdraw
-    // [ ] Rebalance
+    // [x] Rebalance
 
     // ╔══════════════════════════════════════════════════════════════════════════════╗
     // ║                      ✦✦✦ MAVERICK V2 POOL FUNCTIONS ✦✦✦                      ║
