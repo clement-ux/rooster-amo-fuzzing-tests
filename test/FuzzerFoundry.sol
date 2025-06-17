@@ -25,6 +25,7 @@ contract FuzzerFoundry is TargetFunction {
 
         // Target selectors
         targetSelector(FuzzSelector({addr: address(this), selectors: selectors}));
+        targetSender(makeAddr("FuzzerSender"));
     }
 
     function invariant() public view {}
