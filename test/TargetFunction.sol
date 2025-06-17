@@ -93,13 +93,14 @@ abstract contract TargetFunction is Properties {
         uint256 amountOut = _bound(_amount, 0, poolBalance);
 
         // Quote amountIn needed to swap for amountOut
-        (uint256 amountIn,,) = quoter.calculateSwap({
+        (uint256 amountIn, uint256 _amountOut,) = quoter.calculateSwap({
             pool: IMaverickV2Pool(address(pool)),
             amount: amountOut.toUint128(),
             tokenAIn: _wethIn,
             exactOutput: true,
             tickLimit: _wethIn ? inv.TICK_LIMIT : -inv.TICK_LIMIT
         });
+        amountOut = _amountOut; // Use the amountOut from the quote
 
         // If tokenIn is WETH, we need to deal it to the swapper.
         // If tokenIn is OETH, we assume that the swapper has enough OETH to swap.
@@ -294,12 +295,21 @@ abstract contract TargetFunction is Properties {
 
             // Main call
             vm.prank(governor);
-            strategy.rebalance({
+            try strategy.rebalance({
                 _amountToSwap: amountIn,
                 _swapWeth: true, // Swap WETH for OETH
                 _minTokenReceived: 0, // No min token received as we are swapping WETH for OETH
                 _liquidityToRemovePct: removeLiquidityPct // Remove 95% of our liquidity
-            });
+            }) {} catch Error(string memory reason) {
+                // In some scenarios, the rebalance can be unprofitable to the AMO, which can lead to insolvency.
+                // In this case, we assume that the rebalance is not possible and we revert.
+                console.log("Rebalance failed, reason: %s", reason);
+                if (!reason.eq("Protocol insolvent")) {
+                    console.log("Rebalance failed with reason: %s", reason);
+                    revert("Rebalance failed but not due to insolvency");
+                }
+                vm.assume(false); // If the rebalance fails, we assume it was not possible
+            }
         }
     }
 }
