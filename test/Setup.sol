@@ -241,41 +241,6 @@ abstract contract Setup is Base_Test {
         }
 
         // ---
-        // --- Seed pool with some liquidity
-        // ---
-        // Ticks
-        int32[] memory ticks = new int32[](2);
-        ticks[0] = deploy.ACTIVE_TICK - deploy.TICK_SPACING.toInt32(); // -2
-        ticks[1] = deploy.ACTIVE_TICK; // -1
-        // Amounts
-        uint128[] memory amounts = new uint128[](2);
-        amounts[0] = deploy.INITIAL_LIQUIDITY_WETH;
-        amounts[1] = deploy.INITIAL_LIQUIDITY_OETH;
-        // Pack the ticks and amounts
-        IMaverickV2Pool.AddLiquidityParams memory param =
-            IMaverickV2Pool.AddLiquidityParams({kind: 0, ticks: ticks, amounts: amounts});
-        // Calculate the amounts needed to add liquidity
-        (uint256 wethAmount, uint256 oethAmount,) = quoter.calculateAddLiquidity(pool, param);
-        // Pack the parameters for adding liquidity
-        IMaverickV2Pool.AddLiquidityParams[] memory params = new IMaverickV2Pool.AddLiquidityParams[](1);
-        params[0] = param;
-        bytes[] memory packedArgs = liquidityManager.packAddLiquidityArgsArray(params);
-        bytes memory packedSqrtPriceBreaks = liquidityManager.packUint88Array(new uint88[](1));
-
-        // Mint tokens and approve for adding liquidity
-        MockERC20(address(weth)).mint(address(this), wethAmount);
-        MockERC20(address(oeth)).mint(address(this), oethAmount);
-        weth.approve(address(liquidityManager), wethAmount);
-        oeth.approve(address(liquidityManager), oethAmount);
-
-        // Add liquidity to the pool
-        liquidityManager.mintPositionNftToSender({
-            pool: IMaverickV2Pool(address(pool)),
-            packedSqrtPriceBreaks: packedSqrtPriceBreaks,
-            packedArgs: packedArgs
-        });
-
-        // ---
         // --- Mint initial AMO's position NFT
         // ---
         // No need to have WETH, the tick is already in a position where only OETH is needed.
