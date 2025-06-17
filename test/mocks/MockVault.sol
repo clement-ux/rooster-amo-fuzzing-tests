@@ -31,6 +31,6 @@ contract MockVault is IVault {
 
     function totalValue() external view override returns (uint256) {
         require(oeth.balanceOf(address(this)) == 0, "Vault should be empty");
-        return strategy.checkBalance(address(weth));
+        return weth.balanceOf(address(this)) + strategy.checkBalance(address(weth));
     }
 }

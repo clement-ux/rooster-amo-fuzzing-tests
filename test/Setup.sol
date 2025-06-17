@@ -243,7 +243,8 @@ abstract contract Setup is Base_Test {
         // ---
         // --- Mint initial AMO's position NFT
         // ---
-        // No need to have WETH, the tick is already in a position where only OETH is needed.
+        // Give the strategy some WETH to mint the initial position, even if not used.
+        MockERC20(address(weth)).mint(address(strategy), 1e16); // 0.01 WETH
         vm.prank(governor);
         strategy.mintInitialPosition();
 

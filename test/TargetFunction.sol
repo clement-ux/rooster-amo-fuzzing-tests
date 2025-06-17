@@ -52,7 +52,7 @@ abstract contract TargetFunction is Properties {
     using SafeCastLib for uint256;
     using FixedPointMathLib for uint256;
 
-    function handler_setAllowedPoolWethShareInterval(uint96 _start, uint96 _end) external {
+    function handler_setAllowedPoolWethShareInterval(uint96 _start, uint96 _end) public {
         // We don't want to call this too often, because deposit is sensitive to the allowed WETH share range.
         // So after we rebalance we should be able to deposit. But if we call this too often, we might
         // end up with a range that is too small to deposit and thus deposit will happen less often.
@@ -78,7 +78,7 @@ abstract contract TargetFunction is Properties {
         strategy.setAllowedPoolWethShareInterval(allowedWethShareStart, allowedWethShareEnd);
     }
 
-    function handler_swap(bool _wethIn, uint96 _amount) external {
+    function handler_swap(bool _wethIn, uint96 _amount) public {
         // Todo: reduce the type of _amount (to uint96 or smth)
         // As there is only one swapper, we can use the first one.
         address swapper = swappers[0];
@@ -136,7 +136,7 @@ abstract contract TargetFunction is Properties {
         vm.stopPrank();
     }
 
-    function handler_deposit(uint80 _amount) external {
+    function handler_deposit(uint80 _amount) public {
         _amount = _amount == 0 ? 1 : _amount; // Bound to be at least 1
 
         // Check if the pool price is in the expected range
@@ -146,8 +146,13 @@ abstract contract TargetFunction is Properties {
         // next deposit call is in expected range.
         vm.assume(isExpectedRange);
 
+        uint256 balance = weth.balanceOf(address(vault));
+
         // Give WETH to the vault
-        MockERC20(address(weth)).mint(address(vault), _amount);
+        if (balance < _amount) {
+            // Mint WETH to the vault
+            MockERC20(address(weth)).mint(address(vault), _amount - balance);
+        }
         // Vault transfer it to the strategy
         // Note: The vault is the only one allowed to call deposit()
         // Note: We don't deal directly to the strategy, otherwise it will mess up the accounting.
@@ -171,7 +176,7 @@ abstract contract TargetFunction is Properties {
         strategy.deposit(address(weth), _amount);
     }
 
-    function handler_rebalance(uint16 _targetWethShare) external {
+    function handler_rebalance(uint16 _targetWethShare) public {
         // There is two possible scenarios for rebalance:
         // 1. The current price is above the targeted price
         // 2. The current price is below the targeted price
@@ -254,12 +259,20 @@ abstract contract TargetFunction is Properties {
 
             // Main call
             vm.prank(governor);
-            strategy.rebalance({
+            try strategy.rebalance({
                 _amountToSwap: amountIn,
                 _swapWeth: false, // Swap OETH for WETH
                 _minTokenReceived: 0, // No min token received as we are swapping OETH for WETH
                 _liquidityToRemovePct: 0 // No liquidity to remove
-            });
+            }) {} catch Error(string memory reason) {
+                // In some scenarios, the rebalance can be unprofitable to the AMO, which can lead to insolvency.
+                // In this case, we assume that the rebalance is not possible and we revert.
+                console.log("Rebalance failed, reason: %s", reason);
+                if (!reason.eq("Protocol insolvent")) {
+                    console.log("Rebalance failed with reason: %s", reason);
+                    revert("Rebalance failed but not due to insolvency");
+                }
+            }
         } else {
             // As we will remove 95% of our liquidity, we need to account how much OETH less we will have to extract.
             (uint256 amoReserveA, uint256 amoReserveB) = strategy.getPositionPrincipal();
@@ -308,8 +321,33 @@ abstract contract TargetFunction is Properties {
                     console.log("Rebalance failed with reason: %s", reason);
                     revert("Rebalance failed but not due to insolvency");
                 }
-                vm.assume(false); // If the rebalance fails, we assume it was not possible
             }
+        }
+    }
+
+    function handler_withdraw(uint8 withdrawAll, uint96 amountToWithdraw) public {
+        // As withdrawAll do a lot of thing and remove all the liquidity, we should not call it too often.
+        // So we will only call it 20% of the time.
+        if (withdrawAll % 10 >= 8) {
+            // Withdraw all
+            console.log("User: Vault -> withdrawAll()");
+
+            vm.prank(address(vault));
+            strategy.withdrawAll();
+        } else {
+            (uint256 amount,) = strategy.getPositionPrincipal();
+            // Bound amount to withdraw between 0 and the amount of OETH in the AMO position
+
+            vm.assume(amount != 0);
+            amountToWithdraw = _bound(amountToWithdraw, 1, amount.toUint96()).toUint96();
+
+            if (inv.LOG) {
+                console.log("User: Vault -> withdraw() \t\t\t\t AmountTo: %s", uint256(amountToWithdraw).faa());
+            }
+
+            // Main call
+            vm.prank(address(vault));
+            strategy.withdraw({_recipient: address(vault), _asset: address(weth), _amount: amountToWithdraw});
         }
     }
 }
