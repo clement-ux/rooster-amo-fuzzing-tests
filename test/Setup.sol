@@ -202,7 +202,7 @@ abstract contract Setup is Base_Test {
         strategy = new RoosterAMOStrategy({
             _stratConfig: InitializableAbstractStrategy.BaseStrategyConfig(plateform, address(vault)),
             _wethAddress: address(weth),
-            _oethpAddress: address(oeth),
+            _oethAddress: address(oeth),
             _liquidityManager: address(liquidityManager),
             _poolLens: address(poolLens),
             _maverickPosition: address(position),
