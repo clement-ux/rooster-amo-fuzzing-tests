@@ -8,6 +8,7 @@ import {RegisteredTicks} from "./RegisteredTicks.sol";
 // External imports
 import {TickMath} from "@rooster-pool/v2-common/contracts/libraries/TickMath.sol";
 import {SafeCastLib} from "@solady/utils/SafeCastLib.sol";
+import {MaverickV2Quoter} from "@rooster-pool/v2-supplemental/contracts/MaverickV2Quoter.sol";
 import {IMaverickV2Pool} from "@rooster-pool/v2-common/contracts/interfaces/IMaverickV2Pool.sol";
 import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 import {RoosterAMOStrategy} from "@rooster-amo/strategies/plume/RoosterAMOStrategy.sol";
@@ -186,5 +187,36 @@ library Views {
 
         // Calculate the price based on the WETH share
         return sqrtPriceTickLower + (sqrtPriceTickHigher - sqrtPriceTickLower).mulWad(wethShare);
+    }
+
+    function getAddLiquidityParams(
+        IMaverickV2Pool pool,
+        MaverickV2Quoter quoter,
+        uint256 maxWETH,
+        uint256 maxOETH,
+        int32 tick,
+        uint8 bin
+    ) public returns (uint256 amountWETH, uint256 amountOETH, IMaverickV2Pool.AddLiquidityParams memory addParam) {
+        int32[] memory ticks = new int32[](1);
+        ticks[0] = tick;
+        uint128[] memory amounts = new uint128[](1);
+        // arbitrary LP amount
+        amounts[0] = 1e24;
+
+        // construct value for Quoter with arbitrary LP amount
+        addParam = IMaverickV2Pool.AddLiquidityParams({kind: bin, ticks: ticks, amounts: amounts});
+        (amountWETH, amountOETH,) = quoter.calculateAddLiquidity(pool, addParam);
+
+        // Adjust amount of WETH, OETH and LPs needed
+        amountWETH = amountWETH == 0 ? 1 : amountWETH; // ensure we always have a non-zero amount
+        amountOETH = amountOETH == 0 ? 1 : amountOETH; // ensure we always have a non-zero amount
+        addParam.amounts[0] = (((maxWETH - 1) * 1e24) / amountWETH).min((maxOETH - 1) * 1e24 / amountOETH).toUint128();
+
+        // Return the amounts needed to add liquidity, with adjusted LP amount
+        (amountWETH, amountOETH,) = quoter.calculateAddLiquidity(pool, addParam);
+        require(amountWETH <= maxWETH, "Views: Amount of WETH exceeds maxWETH");
+        require(amountOETH <= maxOETH, "Views: Amount of OETH exceeds maxOETH");
+
+        return (amountWETH, amountOETH, addParam);
     }
 }
