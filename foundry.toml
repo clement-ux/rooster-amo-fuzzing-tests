@@ -2,6 +2,7 @@
 src = "src"
 out = "out"
 libs = ["dependencies"]
+verbosity = 3
 auto_detect_remappings = false
 ignored_warnings_from = ["dependencies/"]
 
