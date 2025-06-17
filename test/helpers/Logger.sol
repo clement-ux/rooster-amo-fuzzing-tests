@@ -4,6 +4,8 @@ pragma solidity 0.8.28;
 import {LibString} from "@solady/utils/LibString.sol";
 
 library Logger {
+    using LibString for int32;
+    using LibString for string;
     using LibString for uint256;
 
     // This format values in logs, however it reduce the speed of the tests.
@@ -106,5 +108,13 @@ library Logger {
         }
 
         return string(result);
+    }
+
+    function toString(int32[] memory values) public pure returns (string memory result) {
+        result = "[";
+        for (uint256 i; i < values.length; i++) {
+            result = result.concat(values[i].toString());
+            result = result.concat(i < values.length - 1 ? "," : "]");
+        }
     }
 }

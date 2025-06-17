@@ -47,6 +47,7 @@ abstract contract TargetFunction is Properties {
     using Math for uint256;
     using Views for RoosterAMOStrategy;
     using Logger for uint80;
+    using Logger for int32[];
     using Logger for uint256;
     using LibString for string;
     using SafeCastLib for uint256;
@@ -349,5 +350,14 @@ abstract contract TargetFunction is Properties {
             vm.prank(address(vault));
             strategy.withdraw({_recipient: address(vault), _asset: address(weth), _amount: amountToWithdraw});
         }
+    }
+
+    // WIP
+    function handler_mintPositionNft(uint8 tickCount, uint256 seed) public {
+        tickCount = _bound(tickCount, 1, 5).toUint8(); // Bound tickCount between 1 and 5
+            
+        // Get random ticks
+        int32[] memory ticks = Views.generateSortedUniqueList(tickCount, seed);
+        console.log("Ticks: %s", ticks.toString());
     }
 }

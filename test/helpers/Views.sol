@@ -12,6 +12,7 @@ import {MaverickV2Quoter} from "@rooster-pool/v2-supplemental/contracts/Maverick
 import {IMaverickV2Pool} from "@rooster-pool/v2-common/contracts/interfaces/IMaverickV2Pool.sol";
 import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 import {RoosterAMOStrategy} from "@rooster-amo/strategies/plume/RoosterAMOStrategy.sol";
+import {MaverickV2LiquidityManager} from "@rooster-pool/v2-supplemental/contracts/MaverickV2LiquidityManager.sol";
 
 library Views {
     using SafeCastLib for uint256;
@@ -189,34 +190,133 @@ library Views {
         return sqrtPriceTickLower + (sqrtPriceTickHigher - sqrtPriceTickLower).mulWad(wethShare);
     }
 
-    function getAddLiquidityParams(
-        IMaverickV2Pool pool,
-        MaverickV2Quoter quoter,
-        uint256 maxWETH,
-        uint256 maxOETH,
-        int32 tick,
-        uint8 bin
-    ) public returns (uint256 amountWETH, uint256 amountOETH, IMaverickV2Pool.AddLiquidityParams memory addParam) {
+    struct AddLiquidityParams {
+        IMaverickV2Pool pool;
+        MaverickV2Quoter quoter;
+        uint256 maxWETH;
+        uint256 maxOETH;
+        int32 tick;
+        uint8 bin;
+    }
+
+    function getAddLiquidityParams(AddLiquidityParams memory p)
+        public
+        returns (uint256 amountWETH, uint256 amountOETH, IMaverickV2Pool.AddLiquidityParams memory addParam)
+    {
         int32[] memory ticks = new int32[](1);
-        ticks[0] = tick;
+        ticks[0] = p.tick;
         uint128[] memory amounts = new uint128[](1);
         // arbitrary LP amount
         amounts[0] = 1e24;
 
         // construct value for Quoter with arbitrary LP amount
-        addParam = IMaverickV2Pool.AddLiquidityParams({kind: bin, ticks: ticks, amounts: amounts});
-        (amountWETH, amountOETH,) = quoter.calculateAddLiquidity(pool, addParam);
+        addParam = IMaverickV2Pool.AddLiquidityParams({kind: p.bin, ticks: ticks, amounts: amounts});
+        (amountWETH, amountOETH,) = p.quoter.calculateAddLiquidity(p.pool, addParam);
 
         // Adjust amount of WETH, OETH and LPs needed
         amountWETH = amountWETH == 0 ? 1 : amountWETH; // ensure we always have a non-zero amount
         amountOETH = amountOETH == 0 ? 1 : amountOETH; // ensure we always have a non-zero amount
-        addParam.amounts[0] = (((maxWETH - 1) * 1e24) / amountWETH).min((maxOETH - 1) * 1e24 / amountOETH).toUint128();
+        addParam.amounts[0] =
+            (((p.maxWETH - 1) * 1e24) / amountWETH).min((p.maxOETH - 1) * 1e24 / amountOETH).toUint128();
 
         // Return the amounts needed to add liquidity, with adjusted LP amount
-        (amountWETH, amountOETH,) = quoter.calculateAddLiquidity(pool, addParam);
-        require(amountWETH <= maxWETH, "Views: Amount of WETH exceeds maxWETH");
-        require(amountOETH <= maxOETH, "Views: Amount of OETH exceeds maxOETH");
+        (amountWETH, amountOETH,) = p.quoter.calculateAddLiquidity(p.pool, addParam);
+        require(amountWETH <= p.maxWETH, "Views: Amount of WETH exceeds maxWETH");
+        require(amountOETH <= p.maxOETH, "Views: Amount of OETH exceeds maxOETH");
 
         return (amountWETH, amountOETH, addParam);
+    }
+
+    struct AddLiquidityMultipleTickParams {
+        IMaverickV2Pool pool;
+        MaverickV2Quoter quoter;
+        MaverickV2LiquidityManager liquidityManager;
+        uint256[] maxWETH;
+        uint256[] maxOETH;
+        int32[] tick;
+        uint8[] bin;
+    }
+
+    function getAddLiquidityMultipleTickParams(AddLiquidityMultipleTickParams memory p)
+        public
+        returns (
+            uint256[] memory amountsWETH,
+            uint256[] memory amountsOETH,
+            IMaverickV2Pool.AddLiquidityParams[] memory addParam,
+            bytes memory packedSqrtPriceBreaks,
+            bytes[] memory packedArgs
+        )
+    {
+        uint256 len = p.maxWETH.length;
+        require(len == p.maxOETH.length, "Views: maxWETH and maxOETH must have the same length");
+        require(len == p.tick.length, "Views: maxWETH and tick must have the same length");
+        require(len == p.bin.length, "Views: maxWETH and bin must have the same length");
+
+        amountsWETH = new uint256[](len);
+        amountsOETH = new uint256[](len);
+        addParam = new IMaverickV2Pool.AddLiquidityParams[](len);
+        packedArgs = new bytes[](len);
+
+        for (uint256 i; i < len; i++) {
+            (uint256 amountWETH, uint256 amountOETH, IMaverickV2Pool.AddLiquidityParams memory addLiquidityParam) =
+            getAddLiquidityParams(
+                AddLiquidityParams({
+                    pool: p.pool,
+                    quoter: p.quoter,
+                    maxWETH: p.maxWETH[i],
+                    maxOETH: p.maxOETH[i],
+                    tick: p.tick[i],
+                    bin: p.bin[i]
+                })
+            );
+            amountsWETH[i] = amountWETH;
+            amountsOETH[i] = amountOETH;
+            addParam[i] = addLiquidityParam;
+        }
+
+        packedArgs = p.liquidityManager.packAddLiquidityArgsArray(addParam);
+        packedSqrtPriceBreaks = p.liquidityManager.packUint88Array(new uint88[](len));
+    }
+
+    function generateSortedUniqueList(uint256 len, uint256 random) public pure returns (int32[] memory) {
+        require(len > 0 && len <= 5, "len must be between 1 and 5");
+
+        int32[] memory result = new int32[](len);
+        uint256 i;
+        uint256 nonce;
+
+        while (i < len) {
+            bytes32 hash = keccak256(abi.encodePacked(random, nonce));
+            int32 candidate = int32(int256(uint256(hash) % 21)) - 10; // maps to [-10, 10]
+
+            // check if already present
+            bool exists = false;
+            for (uint256 j = 0; j < i; j++) {
+                if (result[j] == candidate) {
+                    exists = true;
+                    break;
+                }
+            }
+
+            if (!exists) {
+                result[i] = candidate;
+                i++;
+            }
+
+            nonce++;
+        }
+
+        // Insertion sort
+        for (uint256 a = 1; a < len; a++) {
+            int32 key = result[a];
+            uint256 b = a;
+            while (b > 0 && result[b - 1] > key) {
+                result[b] = result[b - 1];
+                b--;
+            }
+            result[b] = key;
+        }
+
+        return result;
     }
 }

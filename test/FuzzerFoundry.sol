@@ -16,12 +16,13 @@ contract FuzzerFoundry is TargetFunction {
         targetContract(address(this));
 
         // Add selectors
-        bytes4[] memory selectors = new bytes4[](5);
+        bytes4[] memory selectors = new bytes4[](6);
         selectors[0] = this.handler_swap.selector;
         selectors[1] = this.handler_setAllowedPoolWethShareInterval.selector;
         selectors[2] = this.handler_deposit.selector;
         selectors[3] = this.handler_rebalance.selector;
         selectors[4] = this.handler_withdraw.selector;
+        selectors[5] = this.handler_mintPositionNft.selector;
 
         // Target selectors
         targetSelector(FuzzSelector({addr: address(this), selectors: selectors}));
