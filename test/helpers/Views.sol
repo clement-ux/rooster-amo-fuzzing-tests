@@ -8,10 +8,11 @@ import {RegisteredTicks} from "./RegisteredTicks.sol";
 // External imports
 import {TickMath} from "@rooster-pool/v2-common/contracts/libraries/TickMath.sol";
 import {SafeCastLib} from "@solady/utils/SafeCastLib.sol";
-import {MaverickV2Quoter} from "@rooster-pool/v2-supplemental/contracts/MaverickV2Quoter.sol";
 import {IMaverickV2Pool} from "@rooster-pool/v2-common/contracts/interfaces/IMaverickV2Pool.sol";
+import {MaverickV2Quoter} from "@rooster-pool/v2-supplemental/contracts/MaverickV2Quoter.sol";
 import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 import {RoosterAMOStrategy} from "@rooster-amo/strategies/plume/RoosterAMOStrategy.sol";
+import {MaverickV2Position} from "@rooster-pool/v2-supplemental/contracts/MaverickV2Position.sol";
 import {MaverickV2LiquidityManager} from "@rooster-pool/v2-supplemental/contracts/MaverickV2LiquidityManager.sol";
 
 library Views {

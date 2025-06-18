@@ -32,24 +32,26 @@ abstract contract TargetFunction is Properties {
     // ╚══════════════════════════════════════════════════════════════════════════════╝
     // [x] SetAllowedPoolWethShareInterval
     // [x] Deposit
-    // [ ] Withdraw
+    // [x] Withdraw
     // [x] Rebalance
 
     // ╔══════════════════════════════════════════════════════════════════════════════╗
     // ║                      ✦✦✦ MAVERICK V2 POOL FUNCTIONS ✦✦✦                      ║
     // ╚══════════════════════════════════════════════════════════════════════════════╝
-    // [ ] MigrateBinUpStack (not sure if this is needed)
     // [x] Swap (Pool)
-    // [ ] MintPositionNft (Liquidity Manager)
-    // [ ] AddPositionLiquidityToSenderByTokenIndex (Liquidity Manager)
+    // [x] MintPositionNft (Liquidity Manager)
     // [ ] RemoveLiquidityToSender (Position Manager)
 
     using Math for uint256;
     using Views for RoosterAMOStrategy;
     using Logger for uint80;
+    using Logger for uint96;
     using Logger for int32[];
     using Logger for uint256;
+    using LibString for int32;
     using LibString for string;
+    using SafeCastLib for int256;
+    using SafeCastLib for uint96;
     using SafeCastLib for uint256;
     using FixedPointMathLib for uint256;
 
@@ -352,12 +354,75 @@ abstract contract TargetFunction is Properties {
         }
     }
 
-    // WIP
-    function handler_mintPositionNft(uint8 tickCount, uint256 seed) public {
-        tickCount = _bound(tickCount, 1, 5).toUint8(); // Bound tickCount between 1 and 5
-            
+    function handler_mintPositionNft(int32 tick, uint96 wethAmount, uint96 oethAmount) public {
+        // ---
+        // Mint position NFT
+        // ---
+
         // Get random ticks
-        int32[] memory ticks = Views.generateSortedUniqueList(tickCount, seed);
-        console.log("Ticks: %s", ticks.toString());
+        int32[] memory ticks = new int32[](1);
+        ticks[0] = _bound(tick, -10, 10).toInt32();
+
+        wethAmount = _bound(wethAmount, 1e10, 1e21).toUint96(); // Bound between 0.01 and 1M WETH
+
+        int32 activeTick = pool.getState().activeTick;
+        IMaverickV2Pool.AddLiquidityParams[] memory addParams = new IMaverickV2Pool.AddLiquidityParams[](ticks.length);
+
+        uint256 amountA;
+        uint256 amountB;
+        IMaverickV2Pool.AddLiquidityParams memory addParam;
+        // It is better to splt it between when we have to add OETH or not.
+        // Because if we don't need to add OETH, we can just mint enough WETH.
+        if (ticks[0] < activeTick) {
+            // In this situation, the tick can receive only WETH.
+            (amountA,, addParam) = Views.getAddLiquidityParams(
+                Views.AddLiquidityParams({
+                    pool: pool,
+                    quoter: quoter,
+                    maxWETH: wethAmount,
+                    maxOETH: 2,
+                    tick: ticks[0],
+                    bin: 0
+                })
+            );
+        } else if (ticks[0] >= activeTick) {
+            uint256 balance = oeth.balanceOf(swappers[0]).toUint96();
+            vm.assume(balance > 1e10);
+            oethAmount = _bound(oethAmount, 1e10, balance).toUint96(); // Bound between 0.01 and balance OETH
+            // In this situation, the tick can receive only OETH.
+            (amountA, amountB, addParam) = Views.getAddLiquidityParams(
+                Views.AddLiquidityParams({
+                    pool: pool,
+                    quoter: quoter,
+                    maxWETH: wethAmount,
+                    maxOETH: oethAmount,
+                    tick: ticks[0],
+                    bin: 0
+                })
+            );
+        }
+        MockERC20(address(weth)).mint(swappers[0], amountA);
+        require(amountB <= oethAmount, "Amount B should be less than or equal to oethAmount");
+        addParams[0] = addParam;
+
+        if (inv.LOG) {
+            console.log(
+                "User: Clark -> mintPositionNft() \t\t\t AmountA : %s  AmountB  : %s  AtTick: %s",
+                amountA.faa(),
+                amountB.faa(),
+                ticks[0].toString()
+            );
+        }
+
+        vm.startPrank(swappers[0]);
+        weth.approve(address(liquidityManager), type(uint256).max);
+        oeth.approve(address(liquidityManager), type(uint256).max);
+        liquidityManager.mintPositionNft(
+            pool,
+            swappers[0],
+            liquidityManager.packUint88Array(new uint88[](1)),
+            liquidityManager.packAddLiquidityArgsArray(addParams)
+        );
+        vm.stopPrank();
     }
 }
