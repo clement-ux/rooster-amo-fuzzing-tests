@@ -40,7 +40,7 @@ abstract contract TargetFunction is Properties {
     // ╚══════════════════════════════════════════════════════════════════════════════╝
     // [x] Swap (Pool)
     // [x] MintPositionNft (Liquidity Manager)
-    // [ ] RemoveLiquidityToSender (Position Manager)
+    // [x] RemoveLiquidityToSender (Position Manager)
 
     using Math for uint256;
     using Views for RoosterAMOStrategy;
@@ -53,6 +53,7 @@ abstract contract TargetFunction is Properties {
     using SafeCastLib for int256;
     using SafeCastLib for uint96;
     using SafeCastLib for uint256;
+    using FixedPointMathLib for uint16;
     using FixedPointMathLib for uint256;
 
     function handler_setAllowedPoolWethShareInterval(uint96 _start, uint96 _end) public {
@@ -417,12 +418,41 @@ abstract contract TargetFunction is Properties {
         vm.startPrank(swappers[0]);
         weth.approve(address(liquidityManager), type(uint256).max);
         oeth.approve(address(liquidityManager), type(uint256).max);
-        liquidityManager.mintPositionNft(
+        (,,, uint256 positionId) = liquidityManager.mintPositionNft(
             pool,
             swappers[0],
             liquidityManager.packUint88Array(new uint88[](1)),
             liquidityManager.packAddLiquidityArgsArray(addParams)
         );
+        positionIds.push(positionId);
         vm.stopPrank();
+    }
+
+    function handler_removeLiquidity(uint16 index, bool removeHalf) public {
+        // First we get the id of the position NFT we want to remove liquidity from.
+        // If there are no position NFTs, return early.
+        uint256 positions = positionIds.length;
+        vm.assume(positions > 0);
+        index = _bound(index, 0, positions - 1).toUint16(); // Bound id to be between 0 and positions - 1
+        uint256 positionId = positionIds[index];
+
+        // Find a random percentage to remove liquidity
+        uint256 pctToRemoveWad = removeHalf ? 0.5 ether : 1 ether;
+
+        if (inv.LOG) {
+            console.log(
+                "User: Clark -> removeLiquidity() \t\t\t PctToRem: %s  Id       : %s  ",
+                pctToRemoveWad.faa(),
+                positionId
+            );
+        }
+
+        // Remove liquidity from the position NFT
+        vm.startPrank(swappers[0]);
+        //position.approve(address(position), positionId);
+        position.removeLiquidityToSender(positionId, pool, position.getRemoveParams(positionId, 0, pctToRemoveWad));
+        vm.stopPrank();
+
+        if (!removeHalf) Views.removeFromList(positionIds, positionId);
     }
 }

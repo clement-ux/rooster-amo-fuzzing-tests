@@ -320,4 +320,15 @@ library Views {
 
         return result;
     }
+
+    function removeFromList(uint256[] storage list, uint256 value) public {
+        for (uint256 i = 0; i < list.length; i++) {
+            if (list[i] == value) {
+                list[i] = list[list.length - 1]; // Replace with the last element
+                list.pop(); // Remove the last element
+                return;
+            }
+        }
+        revert("Value not found in the list");
+    }
 }
