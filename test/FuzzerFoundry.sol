@@ -30,5 +30,7 @@ contract FuzzerFoundry is TargetFunction {
         targetSender(makeAddr("FuzzerSender"));
     }
 
-    function invariant() public view {}
+    function invariant() public view {
+        vm.assertTrue(property_C(), "Invariant property_C failed");
+    }
 }

@@ -151,6 +151,7 @@ abstract contract TargetFunction is Properties {
         vm.assume(isExpectedRange);
 
         uint256 balance = weth.balanceOf(address(vault));
+        uint256 checkBalanceBefore = strategy.checkBalance(address(weth));
 
         // Give WETH to the vault
         if (balance < _amount) {
@@ -175,9 +176,33 @@ abstract contract TargetFunction is Properties {
             );
         }
 
+        uint256 oethTotalSupplyBefore = oeth.totalSupply();
         // Main call
         vm.prank(address(vault));
         strategy.deposit(address(weth), _amount);
+        uint256 checkBalanceAfter = strategy.checkBalance(address(weth));
+        uint256 oethTotalSupplyAfter = oeth.totalSupply();
+        if (_amount > 1e16) {
+            vm.assertApproxEqRel(
+                checkBalanceAfter - checkBalanceBefore,
+                oethTotalSupplyAfter - oethTotalSupplyBefore + _amount,
+                5e13, // 0.005% tolerance
+                "Invariant B 1 not respected"
+            );
+            vm.assertTrue(
+                checkBalanceAfter - checkBalanceBefore <= oethTotalSupplyAfter - oethTotalSupplyBefore + _amount,
+                "Invariant B 2 not respected"
+            );
+        } else {
+            // Due to rounding error in Rooster AMO, when depositing small amounts,
+            // the checkBalanceAfter - checkBalanceBefore can be slightly more wrong that with larger amounts.
+            vm.assertApproxEqRel(
+                checkBalanceAfter - checkBalanceBefore,
+                oethTotalSupplyAfter - oethTotalSupplyBefore + _amount,
+                5e14, // 0.05% tolerance
+                "Invariant B 1 not respected"
+            );
+        }
     }
 
     function handler_rebalance(uint16 _targetWethShare) public {
@@ -343,10 +368,18 @@ abstract contract TargetFunction is Properties {
             // Withdraw all
             if (inv.LOG) console.log("User: Vault -> withdrawAll() \t\t\t\t AmountOut : %s", amountWETH.faa());
 
-            uint256 amountInVault = weth.balanceOf(address(vault));
+            uint256 WETHInVault = weth.balanceOf(address(vault));
+            uint256 checkBalanceBefore = strategy.checkBalance(address(weth));
+            uint256 OETHTotalSupplyBefore = oeth.totalSupply();
+
             vm.prank(address(vault));
             strategy.withdrawAll();
-            require(weth.balanceOf(address(vault)) == amountInVault + amountWETH, "Withdraw value mismatch");
+            require(weth.balanceOf(address(vault)) == WETHInVault + amountWETH, "Withdraw value mismatch");
+
+            // Invariant check
+            uint256 newWETHInVault = weth.balanceOf(address(vault));
+            uint256 OETHSupplyBurned = OETHTotalSupplyBefore - oeth.totalSupply();
+            require(newWETHInVault + OETHSupplyBurned >= checkBalanceBefore, "Invariant A not respected");
         } else {
             (uint256 amount,) = strategy.getPositionPrincipal();
             // Bound amount to withdraw between 0 and the amount of OETH in the AMO position
