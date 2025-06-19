@@ -85,7 +85,7 @@ abstract contract TargetFunction is Properties {
     function handler_swap(bool _wethIn, uint96 _amount) public {
         // Todo: reduce the type of _amount (to uint96 or smth)
         // As there is only one swapper, we can use the first one.
-        address swapper = swappers[0];
+        address swapper = alice;
 
         //_wethIn = true;
         (ERC20 tokenIn, ERC20 tokenOut) = _wethIn ? (weth, oeth) : (oeth, weth);
@@ -115,8 +115,9 @@ abstract contract TargetFunction is Properties {
             amountIn = Math.min(amountIn, oeth.balanceOf(swapper));
         }
 
-        string memory log =
-            LibString.concat("User: ", vm.getLabel(swapper)).concat(" -> swap() \t\t\t\t AmountIn  : %s  TokenIn   : %s");
+        string memory log = LibString.concat("User: ", vm.getLabel(swapper)).concat(
+            " -> swap() \t\t\t\t AmountIn  : %s  TokenIn   : %s"
+        );
         if (inv.LOG) {
             console.log(log, amountIn.faa(), _wethIn ? "WETH" : "OETH");
         }
@@ -367,6 +368,7 @@ abstract contract TargetFunction is Properties {
         // ---
         // Mint position NFT
         // ---
+        address lp = alice;
 
         // Get random ticks
         int32[] memory ticks = new int32[](1);
@@ -395,7 +397,7 @@ abstract contract TargetFunction is Properties {
                 })
             );
         } else if (ticks[0] >= activeTick) {
-            uint256 balance = oeth.balanceOf(swappers[0]).toUint96();
+            uint256 balance = oeth.balanceOf(lp).toUint96();
             vm.assume(balance > 1e10);
             oethAmount = _bound(oethAmount, 1e10, balance).toUint96(); // Bound between 0.01 and balance OETH
             // In this situation, the tick can receive only OETH.
@@ -410,25 +412,25 @@ abstract contract TargetFunction is Properties {
                 })
             );
         }
-        MockERC20(address(weth)).mint(swappers[0], amountA);
+        MockERC20(address(weth)).mint(lp, amountA);
         require(amountB <= oethAmount, "Amount B should be less than or equal to oethAmount");
         addParams[0] = addParam;
 
         if (inv.LOG) {
             console.log(
-                "User: Clark -> mintPositionNft() \t\t\t AmountA   : %s  AmountB   : %s  AtTick    : %s",
+                "User: Alice -> mintPositionNft() \t\t\t AmountA   : %s  AmountB   : %s  AtTick    : %s",
                 amountA.faa(),
                 amountB.faa(),
                 ticks[0].toString()
             );
         }
 
-        vm.startPrank(swappers[0]);
+        vm.startPrank(lp);
         weth.approve(address(liquidityManager), type(uint256).max);
         oeth.approve(address(liquidityManager), type(uint256).max);
         (,,, uint256 positionId) = liquidityManager.mintPositionNft(
             pool,
-            swappers[0],
+            lp,
             liquidityManager.packUint88Array(new uint88[](1)),
             liquidityManager.packAddLiquidityArgsArray(addParams)
         );
@@ -449,14 +451,14 @@ abstract contract TargetFunction is Properties {
 
         if (inv.LOG) {
             console.log(
-                "User: Clark -> removeLiquidity() \t\t\t PctToRem  : %s  Id        : %s  ",
+                "User: Alice -> removeLiquidity() \t\t\t PctToRem  : %s  Id        : %s  ",
                 pctToRemoveWad.faa(),
                 positionId
             );
         }
 
         // Remove liquidity from the position NFT
-        vm.startPrank(swappers[0]);
+        vm.startPrank(alice);
         //position.approve(address(position), positionId);
         position.removeLiquidityToSender(positionId, pool, position.getRemoveParams(positionId, 0, pctToRemoveWad));
         vm.stopPrank();

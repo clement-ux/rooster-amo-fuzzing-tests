@@ -229,16 +229,8 @@ abstract contract Setup is Base_Test {
     /// --- USER ROLE ASSIGNMENT & INITIAL POOL SEEDING
     //////////////////////////////////////////////////////
     function _initalize() private {
-        // This section assigns users to specific roles for testing:
-        // - lps: Users who will act as external liquidity providers.
-        // - swappers: Users who will act as external swappers.
-        for (uint256 i; i < inv.NUM_EXTERNAL_LP; i++) {
-            lps.push(users[i]);
-        }
-
-        for (uint256 i = inv.NUM_EXTERNAL_LP; i < inv.NUM_EXTERNAL_LP + inv.NUM_EXTERNAL_SWAPPER; i++) {
-            swappers.push(users[i]);
-        }
+        // We will need only one single external user that will LP and swap in the pool.
+        // This user will be Alice.
 
         // ---
         // --- Mint initial AMO's position NFT

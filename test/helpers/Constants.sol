@@ -24,9 +24,6 @@ library DeploymentParams {
 library InvariantParams {
     bool public constant LOG = true;
 
-    uint256 public constant NUM_EXTERNAL_LP = 2;
-    uint256 public constant NUM_EXTERNAL_SWAPPER = 1;
-
     int32 public constant TICK_LIMIT = 100;
 
     // Different between current weth share and target weth share allowed to trigger a rebalance
