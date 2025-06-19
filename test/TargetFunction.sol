@@ -70,7 +70,7 @@ abstract contract TargetFunction is Properties {
 
         if (inv.LOG) {
             console.log(
-                "User: %s -> setAllowedPoolWethShareInterval()\t Start\t : %s  End      : %s",
+                "User: %s -> setAllowedPoolWethShareInterval()\t ShareStart: %s  Share End : %s",
                 "Gover",
                 allowedWethShareStart.faa(),
                 allowedWethShareEnd.faa()
@@ -115,11 +115,10 @@ abstract contract TargetFunction is Properties {
             amountIn = Math.min(amountIn, oeth.balanceOf(swapper));
         }
 
-        string memory log = LibString.concat("User: ", vm.getLabel(swapper)).concat(
-            " -> swap() \t\t\t\t AmountIn: %s  AmountOut: %s  TokenIn: %s"
-        );
+        string memory log =
+            LibString.concat("User: ", vm.getLabel(swapper)).concat(" -> swap() \t\t\t\t AmountIn  : %s  TokenIn   : %s");
         if (inv.LOG) {
-            console.log(log, amountIn.faa(), amountOut.faa(), _wethIn ? "WETH" : "OETH");
+            console.log(log, amountIn.faa(), _wethIn ? "WETH" : "OETH");
         }
 
         vm.assume(amountIn > 0);
@@ -168,7 +167,7 @@ abstract contract TargetFunction is Properties {
         // Log data
         if (inv.LOG) {
             console.log(
-                "User: Vault -> deposit() \t\t\t\t Amount\t : %s  WethShare: %s  Expect : %s",
+                "User: Vault -> deposit() \t\t\t\t Amount    : %s  WethShare : %s  Expect    : %s",
                 wethBalance.faa(),
                 wethSharePct.faa(),
                 isExpectedRange ? "Yes" : "No"
@@ -254,12 +253,14 @@ abstract contract TargetFunction is Properties {
                 tickLimit: -100
             });
 
-            console.log(
-                "User: Vault -> rebalance() \t\t\t\t AmountTo: %s  Current  : %s  Target : %s ",
-                amountA.faa(),
-                wethSharePct.faa(),
-                targetWethShare.faa()
-            );
+            if (inv.LOG) {
+                console.log(
+                    "User: Vault -> rebalance() \t\t\t\t WETH Remov: %s  OldShare  : %s  NewShare  : %s ",
+                    amountA.faa(),
+                    wethSharePct.faa(),
+                    targetWethShare.faa()
+                );
+            }
 
             // Main call
             vm.prank(governor);
@@ -271,9 +272,9 @@ abstract contract TargetFunction is Properties {
             }) {} catch Error(string memory reason) {
                 // In some scenarios, the rebalance can be unprofitable to the AMO, which can lead to insolvency.
                 // In this case, we assume that the rebalance is not possible and we revert.
-                console.log("Rebalance failed, reason: %s", reason);
+                if (inv.LOG) console.log("Rebalance failed, reason: %s", reason);
                 if (!reason.eq("Protocol insolvent")) {
-                    console.log("Rebalance failed with reason: %s", reason);
+                    if (inv.LOG) console.log("Rebalance failed with reason: %s", reason);
                     revert("Rebalance failed but not due to insolvency");
                 }
             }
@@ -300,12 +301,14 @@ abstract contract TargetFunction is Properties {
             });
 
             // Log data
-            console.log(
-                "User: Vault -> rebalance() \t\t\t\t AmountTo: %s  Current  : %s  Target : %s ",
-                amountB.faa(),
-                wethSharePct.faa(),
-                targetWethShare.faa()
-            );
+            if (inv.LOG) {
+                console.log(
+                    "User: Vault -> rebalance() \t\t\t\t OETH Remov: %s  OldShare  : %s  NewShare  : %s ",
+                    amountB.faa(),
+                    wethSharePct.faa(),
+                    targetWethShare.faa()
+                );
+            }
 
             // Ensure that we have enough WETH to swap
             vm.assume(amoReserveA.mulWad(removeLiquidityPct) >= amountIn);
@@ -320,9 +323,9 @@ abstract contract TargetFunction is Properties {
             }) {} catch Error(string memory reason) {
                 // In some scenarios, the rebalance can be unprofitable to the AMO, which can lead to insolvency.
                 // In this case, we assume that the rebalance is not possible and we revert.
-                console.log("Rebalance failed, reason: %s", reason);
+                if (inv.LOG) console.log("Rebalance failed, reason: %s", reason);
                 if (!reason.eq("Protocol insolvent")) {
-                    console.log("Rebalance failed with reason: %s", reason);
+                    if (inv.LOG) console.log("Rebalance failed with reason: %s", reason);
                     revert("Rebalance failed but not due to insolvency");
                 }
             }
@@ -333,11 +336,16 @@ abstract contract TargetFunction is Properties {
         // As withdrawAll do a lot of thing and remove all the liquidity, we should not call it too often.
         // So we will only call it 20% of the time.
         if (withdrawAll % 10 >= 8) {
-            // Withdraw all
-            console.log("User: Vault -> withdrawAll()");
+            (uint256 amountWETH,) = strategy.getPositionPrincipal();
+            amountWETH += weth.balanceOf(address(strategy));
 
+            // Withdraw all
+            if (inv.LOG) console.log("User: Vault -> withdrawAll() \t\t\t\t AmountOut : %s", amountWETH.faa());
+
+            uint256 amountInVault = weth.balanceOf(address(vault));
             vm.prank(address(vault));
             strategy.withdrawAll();
+            require(weth.balanceOf(address(vault)) == amountInVault + amountWETH, "Withdraw value mismatch");
         } else {
             (uint256 amount,) = strategy.getPositionPrincipal();
             // Bound amount to withdraw between 0 and the amount of OETH in the AMO position
@@ -346,7 +354,7 @@ abstract contract TargetFunction is Properties {
             amountToWithdraw = _bound(amountToWithdraw, 1, amount.toUint96()).toUint96();
 
             if (inv.LOG) {
-                console.log("User: Vault -> withdraw() \t\t\t\t AmountTo: %s", uint256(amountToWithdraw).faa());
+                console.log("User: Vault -> withdraw() \t\t\t\t AmountTo  : %s", uint256(amountToWithdraw).faa());
             }
 
             // Main call
@@ -408,7 +416,7 @@ abstract contract TargetFunction is Properties {
 
         if (inv.LOG) {
             console.log(
-                "User: Clark -> mintPositionNft() \t\t\t AmountA : %s  AmountB  : %s  AtTick: %s",
+                "User: Clark -> mintPositionNft() \t\t\t AmountA   : %s  AmountB   : %s  AtTick    : %s",
                 amountA.faa(),
                 amountB.faa(),
                 ticks[0].toString()
@@ -441,7 +449,7 @@ abstract contract TargetFunction is Properties {
 
         if (inv.LOG) {
             console.log(
-                "User: Clark -> removeLiquidity() \t\t\t PctToRem: %s  Id       : %s  ",
+                "User: Clark -> removeLiquidity() \t\t\t PctToRem  : %s  Id        : %s  ",
                 pctToRemoveWad.faa(),
                 positionId
             );
