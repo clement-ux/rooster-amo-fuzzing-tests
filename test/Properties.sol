@@ -10,6 +10,8 @@ abstract contract Properties is Setup {
     // ╚══════════════════════════════════════════════════════════════════════════════╝
     // [§] After withdrawAll(): new ETH in vault + OETH burned >= checkBalance before withdrawAll()
     // [§] After deposit(): checkBalance difference (after - before) = WETH deposited + OETH minted
+    // [§] After withdrawAll, checkBalance() = 0
+    // [x] There should have no OETH in the AMO.
 
     uint256[] public positionIds;
 

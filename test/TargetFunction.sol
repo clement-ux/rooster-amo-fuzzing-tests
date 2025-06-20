@@ -380,6 +380,7 @@ abstract contract TargetFunction is Properties {
             uint256 newWETHInVault = weth.balanceOf(address(vault));
             uint256 OETHSupplyBurned = OETHTotalSupplyBefore - oeth.totalSupply();
             require(newWETHInVault + OETHSupplyBurned >= checkBalanceBefore, "Invariant A not respected");
+            vm.assertEq(strategy.checkBalance(address(weth)), 0, "Invariant A2 not respected");
         } else {
             (uint256 amount,) = strategy.getPositionPrincipal();
             // Bound amount to withdraw between 0 and the amount of OETH in the AMO position
